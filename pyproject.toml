@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytatr"
+dynamic = ["version"]
+requires-python = ">=3.12"
+description = "Task Tracker in python"
+dependencies = [
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "pre-commit"]
+
+[project.scripts]
+tatr = "pytatr.pytatr:cli"
+
+[tool.setuptools.dynamic]
+version = {attr = "pytatr.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
