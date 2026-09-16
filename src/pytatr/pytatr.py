@@ -4,8 +4,12 @@ import random
 import sys
 import time
 from argparse import Action, ArgumentParser, Namespace
+from dataclasses import dataclass
 from pathlib import Path
 from string import Template
+
+import mistune
+
 
 CHARS = "0123456789"
 NUM_CHARS = 6
@@ -44,21 +48,85 @@ def create_task_id(args: Namespace) -> str:
 
 
 def create_task_folder_with_empty_contents(args: Namespace) -> Path:
+    """Create a task folder with empty contents"""
     mapping = {
         "title": args.title,
         "priority": str(args.priority),
         "tags": ", ".join(args.tags),
     }
-
     task_id = create_task_id(args)
     while task_folder := Path("tasks") / Path(task_id):
         if not task_folder.is_dir():
             break
         task_id = create_task_id(args)
-    task_folder.mkdir()
+    task_folder.mkdir(parents=True)
     with (task_folder / Path("TASK.md")).open("w") as f:
         s = Template(CREATE_MARKDOWN)
         f.write(s.substitute(mapping))
+
+
+def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
+    def parse_header(heading_node: dict) -> str:
+        assert heading_node["type"] == "heading", f"could not find heading in expected header entry {value!s:s}"
+        assert heading_node["attrs"]["level"] == 1
+        assert len(heading_node["children"]) == 1, "unexpected number of children for heading element"
+        text_node = heading_node["children"][0]
+        assert text_node["type"] == "text"
+        return text_node["raw"]
+
+    def next_item_is_blank(node: dict) -> bool:
+        return node["type"] == "blank_line"
+
+    def parse_list(node: dict) -> list[dict]:
+        assert node["type"] == "list"
+        assert len(node["children"]) > 0
+        return node["children"]
+
+    def to_list(value: str, key: str = ",") -> list[str]:
+        assert isinstance(value, str)
+        return value.split()
+
+    def parse_list_item(node: dict) -> tuple[str, str]:
+        assert node["type"] == "list_item"
+        content = node["children"][0]["children"][0]
+        assert "raw" in content
+        raw = content["raw"]
+        name, seperator, value = raw.partition(":")
+        assert seperator, "could not find expected : in string"
+        return name.strip(), value.strip()
+
+    with filename.open("r") as f:
+        text = "".join(f.readlines())
+
+    md = mistune.markdown(text, renderer="ast")
+    header = parse_header(md.pop(0))
+    while next_item_is_blank(md[0]):
+        md.pop(0)
+    children = parse_list(md.pop(0))
+
+    required_keys = ["STATUS", "PRIORITY", "TAGS"]
+    out_types = {"STATUS": str, "PRIORITY": int, "TAGS": to_list}
+    out_data = {"TAGS": [], "PRIORITY": 100, "STATUS": ""}
+
+    assert len(children) >= 3, "specification requires at least 3 elements: TAGS, PRIORITY, STATUS"
+    while len(children) > 0:
+        name, value = parse_list_item(children.pop(0))
+        if name in required_keys:
+            out_data[name] = out_types[name](value)
+        else:
+            out_data[name] = value
+    return out_data
+
+
+def find_tasks(args: Namespace):
+    task_folder = Path("tasks")
+    for child in task_folder.iterdir():
+        task_file = child / Path("TASK.md")
+        data = parse_task_file(task_file)
+        print(data)
+        print("")
+        print("")
+        print("")
 
 
 def parse_args() -> Namespace:
@@ -98,10 +166,11 @@ def parse_args() -> Namespace:
 
 
 def main(args: Namespace):
-    print(args)
+    print("ARGS:", args)
     match args.command:
         case "ls":
-            uncreachable("Not implemented yet.")
+            # uncreachable("Not implemented yet.")
+            find_tasks(args)
         case "create":
             create_task_folder_with_empty_contents(args)
         case _:
