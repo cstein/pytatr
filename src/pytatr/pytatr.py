@@ -84,7 +84,7 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
 
     def to_list(value: str, key: str = ",") -> list[str]:
         assert isinstance(value, str)
-        return value.split()
+        return [m.strip() for m in value.split(key)]
 
     def parse_list_item(node: dict) -> tuple[str, str]:
         assert node["type"] == "list_item"
@@ -106,7 +106,7 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
 
     required_keys = ["STATUS", "PRIORITY", "TAGS"]
     out_types = {"STATUS": str, "PRIORITY": int, "TAGS": to_list}
-    out_data = {"TAGS": [], "PRIORITY": 100, "STATUS": ""}
+    out_data = {"HEADER": header, "TAGS": [], "PRIORITY": 100, "STATUS": ""}
 
     assert len(children) >= 3, "specification requires at least 3 elements: TAGS, PRIORITY, STATUS"
     while len(children) > 0:
@@ -118,15 +118,14 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
     return out_data
 
 
-def find_tasks(args: Namespace):
+def find_tasks(args: Namespace) -> None:
     task_folder = Path("tasks")
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
         data = parse_task_file(task_file)
-        print(data)
-        print("")
-        print("")
-        print("")
+        # ./tasks/20260915-583503/TASK.md:1: OPEN [PRIORITY: 100] [feature] Implement search with command ls
+        s = f"{task_file!s:s}:1: {data["STATUS"]:>6s} [PRIORITY: {data["PRIORITY"]:3>d}] [{",".join(data["TAGS"]):s}] {data["HEADER"]:s}"
+        print(s)
 
 
 def parse_args() -> Namespace:
