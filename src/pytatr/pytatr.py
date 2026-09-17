@@ -14,6 +14,7 @@ from pytatr.query import compile_query, query_matches_task
 
 CHARS = "0123456789"
 NUM_CHARS = 6
+MAX_HEADER_PRINT_LEN = 100
 
 
 CREATE_MARKDOWN = """# $title
@@ -136,7 +137,10 @@ def find_tasks(args: Namespace) -> None:
         task_file = child / Path("TASK.md")
         task = parse_task_file(task_file)
         if query_matches_task(query, task):
-            s = f"{task_file!s:s}:1: {task['STATUS']:>6s} [PRIORITY: {task['PRIORITY']:>3d}] [{','.join(task['TAGS']):s}] {task['HEADER']:s}"
+            format_header = task['HEADER']
+            if len(format_header) > args.header_length:
+                format_header = format_header[:args.header_length] + "..."
+            s = f"{task_file!s:s}:1: {task['STATUS']:>6s} [PRIORITY: {task['PRIORITY']:>3d}] [{','.join(task['TAGS']):s}] {format_header:s}"
             print(s)
 
 
@@ -172,6 +176,7 @@ def parse_args() -> Namespace:
 
     ap_list = subparsers.add_parser("ls", help="List tasks.")
     ap_list.add_argument("query", default=["open"], nargs="*", help="Search query for tasks. Default is 'open'.")
+    ap_list.add_argument("--header-length", default=MAX_HEADER_PRINT_LEN, type=int, help="maximum length of header to display. Default is %(default)s.")
 
     ap_init = subparsers.add_parser("init", help="Creates the task folder.")
     ap_init.add_argument("-v", dest="verbose", default=False, action="store_true", help="verbose output.")
