@@ -58,9 +58,9 @@ def compile_query(tokens: list[str]) -> list[Op]:
     return query
 
 
-def match(ops: list[Op_Kind], task: dict[str, str | int | list[str]]) -> bool:
+def query_matches_task(query: list[Op_Kind], task: dict[str, str | int | list[str]]) -> bool:
     stack = []
-    for op in ops:
+    for op in query:
         match op.kind:
             case Op_Kind.OP_ANY:
                 stack.append(True)

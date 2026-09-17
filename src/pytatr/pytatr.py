@@ -10,7 +10,7 @@ from string import Template
 
 import mistune
 
-from pytatr.query import compile_query, match
+from pytatr.query import compile_query, query_matches_task
 
 CHARS = "0123456789"
 NUM_CHARS = 6
@@ -126,26 +126,15 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
     return out_data
 
 
-
-
-def should_present_task(
-        query,
-        task: dict[str, str | int | list[str]]
-) -> None:
-    """Stack based search"""
-    #stack: list[bool]  = []
-    return match(query, task)
-
-
 def find_tasks(args: Namespace) -> None:
     task_folder = Path("tasks")
     query = compile_query(args.query)
     print("[QUERY]:", query)
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
-        data = parse_task_file(task_file)
-        if should_present_task(query, data):
-            s = f"{task_file!s:s}:1: {data['STATUS']:>6s} [PRIORITY: {data['PRIORITY']:3>d}] [{','.join(data['TAGS']):s}] {data['HEADER']:s}"
+        task = parse_task_file(task_file)
+        if query_matches_task(query, task):
+            s = f"{task_file!s:s}:1: {task['STATUS']:>6s} [PRIORITY: {task['PRIORITY']:>3d}] [{','.join(task['TAGS']):s}] {task['HEADER']:s}"
             print(s)
 
 

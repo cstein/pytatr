@@ -4,3 +4,5 @@
  - PRIORITY: 100
  - TAGS: bug
 
+ this could be alleviated implementing `tatr init`.
+
