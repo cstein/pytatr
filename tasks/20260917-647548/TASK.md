@@ -1,7 +1,7 @@
-# create keywords for open and close status
+# create keywords for open and close status with tatr ls
 
- - STATUS: OPEN
+ - STATUS: CLOSED
  - PRIORITY: 100
- - TAGS: bug
+ - TAGS: feature
 
 [description here]

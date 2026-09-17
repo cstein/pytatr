@@ -49,7 +49,7 @@ def create_task_id(args: Namespace) -> str:
     return f"{time_str:s}-{chars:s}{user_tag:s}"
 
 
-def create_task_folder_with_empty_contents(args: Namespace) -> Path:
+def create_task_folder_with_empty_contents(args: Namespace) -> None:
     """Create a task folder with empty contents"""
     mapping = {
         "title": args.title,
@@ -65,6 +65,8 @@ def create_task_folder_with_empty_contents(args: Namespace) -> Path:
     with (task_folder / Path("TASK.md")).open("w") as f:
         s = Template(CREATE_MARKDOWN)
         f.write(s.substitute(mapping))
+
+    print(f"[INFO] Created task: {task_id:s}")
 
 
 def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
@@ -169,7 +171,7 @@ def parse_args() -> Namespace:
     )
 
     ap_list = subparsers.add_parser("ls", help="List tasks.")
-    ap_list.add_argument("query", default=["any"], nargs="*", help="search query for tasks")
+    ap_list.add_argument("query", default=["open"], nargs="*", help="Search query for tasks. Default is 'open'.")
 
     ap_init = subparsers.add_parser("init", help="Creates the task folder.")
     ap_init.add_argument("-v", dest="verbose", default=False, action="store_true", help="verbose output.")
@@ -181,7 +183,6 @@ def parse_args() -> Namespace:
 
 
 def main(args: Namespace):
-    print("ARGS:", args)
     match args.command:
         case "init":
             uncreachable("Not implemented yet.")
