@@ -52,7 +52,7 @@ def parse_primary(tokens: list[str]) -> Op:
         case "closed":
             return Op(Op_Kind.OP_STATUS_CLOSED)
         case _:
-            raise ValueError(f"item '{item}' was not primary expression.")
+            raise ValueError(f"item '{token}' was not primary expression.")
     raise SyntaxError("Unexpected end of token stream")
 
 
