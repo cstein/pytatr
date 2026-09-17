@@ -2,6 +2,5 @@
 
  - STATUS: OPEN
  - PRIORITY: 100
- - TAGS: bug, stream
-
+ - TAGS: bug
 

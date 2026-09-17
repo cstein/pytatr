@@ -4,12 +4,13 @@ import random
 import sys
 import time
 from argparse import Action, ArgumentParser, Namespace
-from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from string import Template
 
 import mistune
 
+from pytatr.query import compile_query, match
 
 CHARS = "0123456789"
 NUM_CHARS = 6
@@ -31,6 +32,7 @@ def unreachable(message: str) -> None:
 
 class ConcatenateStringsAction(Action):
     """Concatenate inputs into one string"""
+
     def __call__(self, parser, namespace, values, option_string=None):
         value = " ".join(values)
         setattr(namespace, self.dest, value)
@@ -67,9 +69,13 @@ def create_task_folder_with_empty_contents(args: Namespace) -> Path:
 
 def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
     def parse_header(heading_node: dict) -> str:
-        assert heading_node["type"] == "heading", f"could not find heading in expected header entry {value!s:s}"
+        assert heading_node["type"] == "heading", (
+            f"could not find heading in expected header entry {value!s:s}"
+        )
         assert heading_node["attrs"]["level"] == 1
-        assert len(heading_node["children"]) == 1, "unexpected number of children for heading element"
+        assert len(heading_node["children"]) == 1, (
+            "unexpected number of children for heading element"
+        )
         text_node = heading_node["children"][0]
         assert text_node["type"] == "text"
         return text_node["raw"]
@@ -108,7 +114,9 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
     out_types = {"STATUS": str, "PRIORITY": int, "TAGS": to_list}
     out_data = {"HEADER": header, "TAGS": [], "PRIORITY": 100, "STATUS": ""}
 
-    assert len(children) >= 3, "specification requires at least 3 elements: TAGS, PRIORITY, STATUS"
+    assert len(children) >= 3, (
+        "specification requires at least 3 elements: TAGS, PRIORITY, STATUS"
+    )
     while len(children) > 0:
         name, value = parse_list_item(children.pop(0))
         if name in required_keys:
@@ -118,14 +126,27 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
     return out_data
 
 
+
+
+def should_present_task(
+        query,
+        task: dict[str, str | int | list[str]]
+) -> None:
+    """Stack based search"""
+    #stack: list[bool]  = []
+    return match(query, task)
+
+
 def find_tasks(args: Namespace) -> None:
     task_folder = Path("tasks")
+    query = compile_query(args.query)
+    print("[QUERY]:", query)
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
         data = parse_task_file(task_file)
-        # ./tasks/20260915-583503/TASK.md:1: OPEN [PRIORITY: 100] [feature] Implement search with command ls
-        s = f"{task_file!s:s}:1: {data["STATUS"]:>6s} [PRIORITY: {data["PRIORITY"]:3>d}] [{",".join(data["TAGS"]):s}] {data["HEADER"]:s}"
-        print(s)
+        if should_present_task(query, data):
+            s = f"{task_file!s:s}:1: {data['STATUS']:>6s} [PRIORITY: {data['PRIORITY']:3>d}] [{','.join(data['TAGS']):s}] {data['HEADER']:s}"
+            print(s)
 
 
 def parse_args() -> Namespace:
@@ -159,7 +180,7 @@ def parse_args() -> Namespace:
     )
 
     ap_list = subparsers.add_parser("ls", help="List tasks.")
-    ap_list.add_argument("query", default="*", nargs="*", help="search query for tasks")
+    ap_list.add_argument("query", default=["any"], nargs="*", help="search query for tasks")
 
     return ap.parse_args()
 
