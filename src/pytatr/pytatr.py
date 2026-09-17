@@ -140,7 +140,7 @@ def find_tasks(args: Namespace) -> None:
 
 def parse_args() -> Namespace:
     ap = ArgumentParser()
-    subparsers = ap.add_subparsers(help="Parsers", dest="command")
+    subparsers = ap.add_subparsers(help="Commands", dest="command")
 
     ap_create = subparsers.add_parser("create", help="Create a note")
     ap_create.add_argument(
@@ -171,17 +171,26 @@ def parse_args() -> Namespace:
     ap_list = subparsers.add_parser("ls", help="List tasks.")
     ap_list.add_argument("query", default=["any"], nargs="*", help="search query for tasks")
 
+    ap_init = subparsers.add_parser("init", help="Creates the task folder.")
+    ap_init.add_argument("-v", dest="verbose", default=False, action="store_true", help="verbose output.")
+
+    ap_close = subparsers.add_parser("close", help="closes a task")
+    ap_close.add_argument("taskid", nargs="*", default=None, help="the task id to close.")
+
     return ap.parse_args()
 
 
 def main(args: Namespace):
     print("ARGS:", args)
     match args.command:
+        case "init":
+            uncreachable("Not implemented yet.")
         case "ls":
-            # uncreachable("Not implemented yet.")
             find_tasks(args)
         case "create":
             create_task_folder_with_empty_contents(args)
+        case "close":
+            uncreachable("Not implemented yet.")
         case _:
             sys.exit(1)
     sys.exit(0)

@@ -7,6 +7,8 @@ class Op_Kind(Enum):
     OP_ANY = 1
     OP_NOT = 2
     OP_TAGGED = 3
+    OP_STATUS_OPEN = 4
+    OP_STATUS_CLOSED = 5
 
     def __repr__(self) -> str:
         return self.name
@@ -45,6 +47,10 @@ def parse_primary(tokens: list[str]) -> Op:
             return Op(Op_Kind.OP_ANY)
         case "tagged":
             return Op(Op_Kind.OP_TAGGED)
+        case "open":
+            return Op(Op_Kind.OP_STATUS_OPEN)
+        case "closed":
+            return Op(Op_Kind.OP_STATUS_CLOSED)
         case _:
             raise ValueError(f"item '{item}' was not primary expression.")
     raise SyntaxError("Unexpected end of token stream")
@@ -69,6 +75,10 @@ def query_matches_task(query: list[Op_Kind], task: dict[str, str | int | list[st
                 stack.append(not value)
             case Op_Kind.OP_TAGGED:
                 stack.append(len(task["TAGS"]) > 0)
+            case Op_Kind.OP_STATUS_OPEN:
+                stack.append(task["STATUS"].upper() == "OPEN")
+            case Op_Kind.OP_STATUS_CLOSED:
+                stack.append(task["STATUS"].upper() == "CLOSED")
             case _:
                 raise ValueError
     assert len(stack) == 1
