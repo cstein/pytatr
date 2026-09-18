@@ -2,7 +2,7 @@
 
  - STATUS: OPEN
  - PRIORITY: 100
- - TAGS: bug
+ - TAGS: feature
  - RELATED: 20260915-223596
 
 [description here]
