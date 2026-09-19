@@ -124,7 +124,13 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
     while len(children) > 0:
         name, value = parse_list_item(children.pop(0))
         if name in required_keys:
-            out_data[name] = out_types[name](value)
+            try:
+                out_data[name] = out_types[name](value)
+            except ValueError:
+                print(
+                    f"[ERROR]: while parsing file '{filename!s:s}' the field {name:s} conversion to {out_types[name]!s:s} failed with value {value:s}"
+                )
+                raise
         else:
             out_data[name] = value
     return out_data
@@ -148,7 +154,11 @@ def print_tasks(args: Namespace) -> None:
     tasks_to_print = []
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
-        task = parse_task_file(task_file)
+        try:
+             task = parse_task_file(task_file)
+        except ValueError:
+            pass
+
         if query_matches_task(query, task):
             format_header = task["HEADER"]
             if len(format_header) > args.header_length:

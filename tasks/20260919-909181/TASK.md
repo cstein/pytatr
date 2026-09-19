@@ -1,4 +1,4 @@
-# command tatr ls not results in IndexError
+# command 'tatr ls not' results in IndexError
 
  - STATUS: OPEN
  - PRIORITY: 100
