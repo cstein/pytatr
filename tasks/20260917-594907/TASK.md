@@ -1,6 +1,6 @@
-# sorting of output with tatr ls should be by date or priority
+# sorting of output with tatr ls should be possible by priority
 
- - STATUS: OPEN
+ - STATUS: CLOSED
  - PRIORITY: 100
  - TAGS: feature
 

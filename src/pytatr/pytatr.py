@@ -4,6 +4,7 @@ import random
 import sys
 import time
 from argparse import Action, ArgumentParser, Namespace
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from string import Template
@@ -129,18 +130,47 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
     return out_data
 
 
-def find_tasks(args: Namespace) -> None:
+@dataclass
+class TaskPrintOut:
+    task_file: Path
+    status: str
+    priority: int
+    tags: list[str]
+    header: str
+
+    def __str__(self):
+        return f"{self.task_file!s:s}:1: {self.status:>6s} [PRIORITY: {self.priority:>3d}] [{','.join(self.tags)}] {self.header:s}"
+
+
+def print_tasks(args: Namespace) -> None:
     task_folder = Path("tasks")
     query = compile_query(args.query)
+    tasks_to_print = []
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
         task = parse_task_file(task_file)
         if query_matches_task(query, task):
-            format_header = task['HEADER']
+            format_header = task["HEADER"]
             if len(format_header) > args.header_length:
-                format_header = format_header[:args.header_length] + "..."
-            s = f"{task_file!s:s}:1: {task['STATUS']:>6s} [PRIORITY: {task['PRIORITY']:>3d}] [{','.join(task['TAGS']):s}] {format_header:s}"
-            print(s)
+                format_header = format_header[: args.header_length] + "..."
+            tasks_to_print.append(
+                TaskPrintOut(
+                    task_file=task_file,
+                    status=task.get("STATUS", "ERROR"),
+                    priority=task.get("PRIORITY", -1),
+                    tags=task.get("TAGS", []),
+                    header=format_header,
+                )
+            )
+    output = tasks_to_print
+    if args.sort_priority:
+        output = sorted(output, key=lambda item: item.priority)
+
+    if args.sort_reversed:
+        output = reversed(output)
+
+    for task in output:
+        print(task)
 
 
 def parse_args() -> Namespace:
@@ -174,24 +204,53 @@ def parse_args() -> Namespace:
     )
 
     ap_list = subparsers.add_parser("ls", help="List tasks.")
-    ap_list.add_argument("query", default=["open"], nargs="*", help="Search query for tasks. Default is 'open'.")
-    ap_list.add_argument("--header-length", default=MAX_HEADER_PRINT_LEN, type=int, help="maximum length of header to display. Default is %(default)s.")
+    ap_list.add_argument(
+        "query",
+        default=["open"],
+        nargs="*",
+        help="Search query for tasks. Default is 'open'.",
+    )
+    ap_list.add_argument(
+        "--header-length",
+        default=MAX_HEADER_PRINT_LEN,
+        type=int,
+        help="maximum length of header to display. Default is %(default)s.",
+    )
+    ap_list.add_argument(
+        "-r",
+        dest="sort_reversed",
+        default=False,
+        action="store_true",
+        help="reverse listing.",
+    )
+    ap_list.add_argument(
+        "-p",
+        dest="sort_priority",
+        default=False,
+        action="store_true",
+        help="use priority to sort tasks",
+    )
 
     ap_init = subparsers.add_parser("init", help="Creates the task folder.")
-    ap_init.add_argument("-v", dest="verbose", default=False, action="store_true", help="verbose output.")
+    ap_init.add_argument(
+        "-v", dest="verbose", default=False, action="store_true", help="verbose output."
+    )
 
     ap_close = subparsers.add_parser("close", help="closes a task")
-    ap_close.add_argument("taskid", nargs="*", default=None, help="the task id to close.")
+    ap_close.add_argument(
+        "taskid", nargs="*", default=None, help="the task id to close."
+    )
 
     return ap.parse_args()
 
 
 def main(args: Namespace):
+    print("[ARGS]:", args)
     match args.command:
         case "init":
             unreachable("Not implemented yet.")
         case "ls":
-            find_tasks(args)
+            print_tasks(args)
         case "create":
             create_task_folder_with_empty_contents(args)
         case "close":

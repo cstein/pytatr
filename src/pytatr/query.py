@@ -64,7 +64,10 @@ def compile_query(tokens: list[str]) -> list[Op]:
     return query
 
 
-def query_matches_task(query: list[Op_Kind], task: dict[str, str | int | list[str]]) -> bool:
+def query_matches_task(
+    query: list[Op_Kind], task: dict[str, str | int | list[str]]
+) -> bool:
+    """Matches a compiled query with a specific task"""
     stack = []
     for op in query:
         match op.kind:
@@ -91,6 +94,6 @@ if __name__ == "__main__":
     query = compile_query(command)
     print("[QUERY]:", query)
     task = {"STATUS": "OPEN", "PRIORITY": 90, "TAGS": []}
-    
+
     res = match(query, task)
     print(res)
