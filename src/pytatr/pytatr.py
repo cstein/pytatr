@@ -132,7 +132,6 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
 def find_tasks(args: Namespace) -> None:
     task_folder = Path("tasks")
     query = compile_query(args.query)
-    print("[QUERY]:", query)
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
         task = parse_task_file(task_file)
@@ -190,13 +189,13 @@ def parse_args() -> Namespace:
 def main(args: Namespace):
     match args.command:
         case "init":
-            uncreachable("Not implemented yet.")
+            unreachable("Not implemented yet.")
         case "ls":
             find_tasks(args)
         case "create":
             create_task_folder_with_empty_contents(args)
         case "close":
-            uncreachable("Not implemented yet.")
+            unreachable("Not implemented yet.")
         case _:
             sys.exit(1)
     sys.exit(0)
