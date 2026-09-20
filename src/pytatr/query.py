@@ -7,12 +7,12 @@ class Op_Kind(Enum):
 
     OP_ANY = 1
     OP_NOT = 2
-    OP_TAGGED = 3
-    OP_STATUS_OPEN = 4
-    OP_STATUS_CLOSED = 5
-    OP_HAS_TAG = 6
-    OP_AND = 7
-    OP_OR = 8
+    OP_AND = 3
+    OP_OR = 4
+    OP_TAGGED = 5
+    OP_STATUS_OPEN = 6
+    OP_STATUS_CLOSED = 7
+    OP_HAS_TAG = 8
 
     def __repr__(self) -> str:
         return self.name
@@ -44,6 +44,7 @@ def parse_or(tokens: list[str]) -> list[Op]:
 
 
 def parse_and(tokens: list[str]) -> list[Op]:
+    """binary operation and"""
     a = parse_not(tokens)
     if peek(tokens) == "and":
         and_token = chop(tokens)
@@ -83,7 +84,6 @@ def compile_query(tokens: list[str]) -> list[Op]:
     query = []
     while peek(tokens) not in [None]:
         query.extend(parse_or(tokens))
-    print("[QUERY]:", query)
     return query
 
 
@@ -116,16 +116,6 @@ def query_matches_task(
                 b = stack.pop()
                 stack.append(a or b)
             case _:
-                raise RuntimeError(f"{op!s:s} not supported.")
+                raise RuntimeError(f"Operation {op!s:s} not supported.")
     assert len(stack) == 1
     return stack.pop()
-
-
-if __name__ == "__main__":
-    command = [":bug", "and", "priority", "gt", "90"]
-    command = ["tagged"]
-    query = compile_query(command)
-    task = {"STATUS": "OPEN", "PRIORITY": 90, "TAGS": []}
-
-    res = match(query, task)
-    print(res)

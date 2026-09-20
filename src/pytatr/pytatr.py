@@ -32,12 +32,26 @@ def unreachable(message: str) -> None:
     raise RuntimeError(message)
 
 
+def require_task_folder(args: Namespace) -> Path:
+    if not args.task_folder.is_dir():
+        raise FileNotFoundError(
+            f"[ERROR]: The task folder '{args.task_folder!s:s}' does not exist. Have you run 'tatr init' yet?"
+        )
+
+    return args.task_folder
+
+
 class ConcatenateStringsAction(Action):
     """Concatenate inputs into one string"""
 
     def __call__(self, parser, namespace, values, option_string=None):
         value = " ".join(values)
         setattr(namespace, self.dest, value)
+
+
+class ToPathType(Action):
+    def __call__(self, parser, namespace, value, option_string=None):
+        setattr(namespace, self.dest, Path(value))
 
 
 def create_task_id(args: Namespace) -> str:
@@ -51,21 +65,24 @@ def create_task_id(args: Namespace) -> str:
     return f"{time_str:s}-{chars:s}{user_tag:s}"
 
 
-def create_task_folder_with_empty_contents(args: Namespace) -> None:
-    """Create a task folder with empty contents"""
-    mapping = {
-        "title": args.title,
-        "priority": str(args.priority),
-        "tags": ", ".join(args.tags),
-    }
+def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
+    """Create a folder named from task id with empty contents"""
+    task_folder = require_task_folder(args)
+
     task_id = create_task_id(args)
-    while task_folder := Path("tasks") / Path(task_id):
-        if not task_folder.is_dir():
+    while full_task_path := task_folder / Path(task_id):
+        if not full_task_path.is_dir():
             break
         task_id = create_task_id(args)
-    task_folder.mkdir(parents=True)
-    with (task_folder / Path("TASK.md")).open("w") as f:
+
+    full_task_path.mkdir(parents=True)
+    with (full_task_path / Path("TASK.md")).open("w") as f:
         s = Template(CREATE_MARKDOWN)
+        mapping = {
+            "title": args.title,
+            "priority": str(args.priority),
+            "tags": ", ".join(args.tags),
+        }
         f.write(s.substitute(mapping))
 
     print(f"[INFO] Created task: {task_id:s}")
@@ -149,8 +166,11 @@ class TaskPrintOut:
 
 
 def print_tasks(args: Namespace) -> None:
-    task_folder = Path("tasks")
+    task_folder = require_task_folder(args)
+
     query = compile_query(args.query)
+    if args.debug:
+        print("[QUERY]:", query)
     tasks_to_print = []
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
@@ -185,6 +205,21 @@ def print_tasks(args: Namespace) -> None:
 
 def parse_args() -> Namespace:
     ap = ArgumentParser()
+    ap.add_argument(
+        "-f",
+        "--task-folder",
+        default=Path(".tasks"),
+        type=Path,
+        metavar="DIR",
+        action=ToPathType,
+        help="directory for storing tasks. Default is %(default)s",
+    )
+    ap.add_argument(
+        "--debug",
+        default=False,
+        action="store_true",
+        help="enables debug output",
+    )
     subparsers = ap.add_subparsers(help="Commands", dest="command")
 
     ap_create = subparsers.add_parser("create", help="Create a note")
@@ -255,16 +290,16 @@ def parse_args() -> Namespace:
 
 
 def main(args: Namespace):
-    print("[ARGS]:", args)
+    if args.debug:
+        print("[ARGS]:", args)
+
     match args.command:
         case "init":
-            unreachable("Not implemented yet.")
+            args.task_folder.mkdir(exist_ok=False)
         case "ls":
             print_tasks(args)
         case "create":
-            create_task_folder_with_empty_contents(args)
-        case "close":
-            unreachable("Not implemented yet.")
+            create_task_id_folder_with_empty_contents(args)
         case _:
             sys.exit(1)
     sys.exit(0)

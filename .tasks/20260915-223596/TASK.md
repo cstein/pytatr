@@ -1,6 +1,6 @@
 # Program crash if task folder does not exist
 
- - STATUS: OPEN
+ - STATUS: CLOSED
  - PRIORITY: 100
  - TAGS: bug
  - RELATED: 20260917-774055
