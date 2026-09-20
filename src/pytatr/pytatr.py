@@ -5,7 +5,6 @@ import sys
 import time
 from argparse import Action, ArgumentParser, Namespace
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from string import Template
 
