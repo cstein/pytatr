@@ -155,7 +155,7 @@ def print_tasks(args: Namespace) -> None:
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
         try:
-             task = parse_task_file(task_file)
+            task = parse_task_file(task_file)
         except ValueError:
             pass
 
