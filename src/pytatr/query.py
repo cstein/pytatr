@@ -12,6 +12,7 @@ class Op_Kind(Enum):
     OP_STATUS_CLOSED = 5
     OP_HAS_TAG = 6
     OP_AND = 7
+    OP_OR = 8
 
     def __repr__(self) -> str:
         return self.name
@@ -32,6 +33,14 @@ def chop(tokens: list[str]) -> str:
 
 def peek(tokens: list[str]):
     return tokens[0] if tokens else None
+
+
+def parse_or(tokens: list[str]) -> list[Op]:
+    a = parse_and(tokens)
+    if peek(tokens) == "or":
+        and_token = chop(tokens)
+        return a + parse_and(tokens) + [Op(Op_Kind.OP_OR)]
+    return a
 
 
 def parse_and(tokens: list[str]) -> list[Op]:
@@ -73,8 +82,8 @@ def compile_query(tokens: list[str]) -> list[Op]:
     """Compiles an expression query into a series of operations on a stack"""
     query = []
     while peek(tokens) not in [None]:
-        query.extend(parse_and(tokens))
-    # print("[QUERY]:", query)
+        query.extend(parse_or(tokens))
+    print("[QUERY]:", query)
     return query
 
 
@@ -102,6 +111,10 @@ def query_matches_task(
                 a = stack.pop()
                 b = stack.pop()
                 stack.append(a and b)
+            case Op_Kind.OP_OR:
+                a = stack.pop()
+                b = stack.pop()
+                stack.append(a or b)
             case _:
                 raise RuntimeError(f"{op!s:s} not supported.")
     assert len(stack) == 1

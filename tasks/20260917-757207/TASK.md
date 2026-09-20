@@ -1,7 +1,7 @@
 # search should be able to ask for specific tags
 
- - STATUS: OPEN
- - PRIORITY: 90
+ - STATUS: CLOSED
+ - PRIORITY: 100
  - TAGS: feature
  - RELATED: 20260915-583503
 
