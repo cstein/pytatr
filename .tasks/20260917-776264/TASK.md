@@ -1,7 +1,7 @@
 # functionality to close a task through tatr close ID
 
  - STATUS: OPEN
- - PRIORITY: 100
- - TAGS: bug
+ - PRIORITY: 10
+ - TAGS: feature, nofix
 
-[description here]
+This will most likely never be implemented.

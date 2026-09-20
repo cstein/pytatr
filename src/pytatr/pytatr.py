@@ -280,11 +280,6 @@ def parse_args() -> Namespace:
         "-v", dest="verbose", default=False, action="store_true", help="verbose output."
     )
 
-    ap_close = subparsers.add_parser("close", help="closes a task")
-    ap_close.add_argument(
-        "taskid", nargs="*", default=None, help="the task id to close."
-    )
-
     return ap.parse_args()
 
 
