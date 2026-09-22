@@ -1,6 +1,6 @@
 # command 'tatr ls not' results in IndexError
 
- - STATUS: OPEN
+ - STATUS: CLOSED
  - PRIORITY: 100
  - TAGS: bug
 
