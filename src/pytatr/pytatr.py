@@ -41,7 +41,7 @@ class MarkdownParseError(Exception):
 
 def require_task_folder(args: Namespace) -> Path:
     if not args.task_folder.is_dir():
-        raise TasksFolderNotFoundError (
+        raise TasksFolderNotFoundError(
             f"The task folder '{args.task_folder!s:s}' does not exist. Have you run 'tatr init' yet?"
         )
 
@@ -151,7 +151,9 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
             try:
                 out_data[name] = out_types[name](value)
             except ValueError:
-                raise MarkdownParseError(f"while parsing file '{filename!s:s}' the field {name:s} conversion to {out_types[name]!s:s} failed with value {value:s}")
+                raise MarkdownParseError(
+                    f"while parsing file '{filename!s:s}' the field {name:s} conversion to {out_types[name]!s:s} failed with value {value:s}"
+                )
         else:
             out_data[name] = value
     return out_data

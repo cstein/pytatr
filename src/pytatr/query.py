@@ -95,9 +95,12 @@ def parse_primary(tokens: list[str]) -> list[Op]:
 def compile_query(tokens: list[str]) -> list[Op]:
     """Compiles an expression query into a series of operations on a stack"""
     org_query = " ".join(tokens)
-    query = []
-    while peek(tokens) not in [None]:
-        query.extend(parse_or(tokens))
+    query = parse_or(tokens)
+    # for more complicated queries we need to parse more using the while loop below
+    # while peek(tokens) not in [None]:
+    #     query.extend(parse_or(tokens))
+    if tokens:
+        raise QueryError(f"unexpected token '{tokens[0]:s}' in query")
     return query
 
 
