@@ -10,7 +10,7 @@ from string import Template
 
 import mistune
 
-from pytatr.query import compile_query, query_matches_task
+from pytatr.query import compile_query, query_matches_task, QueryError
 
 CHARS = "0123456789"
 NUM_CHARS = 6
@@ -33,6 +33,11 @@ def unreachable(message: str) -> None:
 
 class TasksFolderNotFoundError(Exception):
     pass
+
+
+class MarkdownParseError(Exception):
+    pass
+
 
 def require_task_folder(args: Namespace) -> Path:
     if not args.task_folder.is_dir():
@@ -146,10 +151,7 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
             try:
                 out_data[name] = out_types[name](value)
             except ValueError:
-                print(
-                    f"[ERROR]: while parsing file '{filename!s:s}' the field {name:s} conversion to {out_types[name]!s:s} failed with value {value:s}"
-                )
-                raise
+                raise MarkdownParseError(f"while parsing file '{filename!s:s}' the field {name:s} conversion to {out_types[name]!s:s} failed with value {value:s}")
         else:
             out_data[name] = value
     return out_data
@@ -170,7 +172,7 @@ class TaskPrintOut:
 def print_tasks(args: Namespace) -> None:
     task_folder = require_task_folder(args)
 
-    query = compile_query(args.query)
+    query = compile_query(args.query[:])
     if args.debug:
         print("[QUERY]:", query)
     tasks_to_print = []
@@ -178,8 +180,9 @@ def print_tasks(args: Namespace) -> None:
         task_file = child / Path("TASK.md")
         try:
             task = parse_task_file(task_file)
-        except ValueError:
-            pass
+        except MarkdownParseError as e:
+            print(f"[WARNING]: {e}", file=sys.stderr)
+            continue
 
         if query_matches_task(query, task):
             format_header = task["HEADER"]
@@ -222,7 +225,7 @@ def parse_args() -> Namespace:
         action="store_true",
         help="enables debug output",
     )
-    subparsers = ap.add_subparsers(help="Commands", dest="command")
+    subparsers = ap.add_subparsers(help="Commands", dest="command", required=True)
 
     ap_create = subparsers.add_parser("create", help="Create a note")
     ap_create.add_argument(
@@ -290,19 +293,23 @@ def main(args: Namespace):
     if args.debug:
         print("[ARGS]:", args)
 
-    match args.command:
-        case "init":
-            args.task_folder.mkdir(exist_ok=False)
-        case "ls":
-            try:
-                print_tasks(args)
-            except TasksFolderNotFoundError as e:
-                print(f"[ERROR]: {e}", file=sys.stderr)
-                sys.exit(127)
-        case "create":
-            create_task_id_folder_with_empty_contents(args)
-        case _:
-            sys.exit(1)
+    try:
+        match args.command:
+            case "init":
+                args.task_folder.mkdir(exist_ok=False)
+            case "ls":
+                try:
+                    print_tasks(args)
+                except QueryError as e:
+                    print(f"[ERROR]: {e}", file=sys.stderr)
+                    sys.exit(2)
+            case "create":
+                create_task_id_folder_with_empty_contents(args)
+            case _:
+                sys.exit(2)
+    except (FileExistsError, TasksFolderNotFoundError) as e:
+        print(f"[ERROR]: {e}", file=sys.stderr)
+        sys.exit(1)
     sys.exit(0)
 
 

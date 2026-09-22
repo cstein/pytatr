@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+import sys
 
 
 class Op_Kind(Enum):
@@ -27,11 +28,22 @@ class Op:
         return f"Op({self.kind!r:s})"
 
 
+class QueryError(Exception):
+    pass
+
+
 def chop(tokens: list[str]) -> str:
-    return tokens.pop(0)
+    try:
+        token = tokens.pop(0)
+    except IndexError:
+        raise QueryError("unexpected end of query")
+    else:
+        if len(token) == 0:
+            raise QueryError("unexpected empty query")
+        return token
 
 
-def peek(tokens: list[str]):
+def peek(tokens: list[str]) -> str | None:
     return tokens[0] if tokens else None
 
 
@@ -63,6 +75,8 @@ def parse_not(tokens: list[str]) -> list[Op]:
 def parse_primary(tokens: list[str]) -> list[Op]:
     token = chop(tokens)
     if token[0] == ":":
+        if not token[1:]:
+            raise QueryError("syntax error. got ':' but expected :<TAG>")
         return [Op(Op_Kind.OP_HAS_TAG, tag=token[1:])]
 
     match token:
@@ -75,12 +89,12 @@ def parse_primary(tokens: list[str]) -> list[Op]:
         case "closed":
             return [Op(Op_Kind.OP_STATUS_CLOSED)]
         case _:
-            raise ValueError(f"item '{token}' was not primary expression.")
-    raise SyntaxError("Unexpected end of token stream")
+            raise QueryError(f"'{token}' is not a valid keyword.")
 
 
 def compile_query(tokens: list[str]) -> list[Op]:
     """Compiles an expression query into a series of operations on a stack"""
+    org_query = " ".join(tokens)
     query = []
     while peek(tokens) not in [None]:
         query.extend(parse_or(tokens))
