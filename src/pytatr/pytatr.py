@@ -31,10 +31,13 @@ def unreachable(message: str) -> None:
     raise RuntimeError(message)
 
 
+class TasksFolderNotFoundError(Exception):
+    pass
+
 def require_task_folder(args: Namespace) -> Path:
     if not args.task_folder.is_dir():
-        raise FileNotFoundError(
-            f"[ERROR]: The task folder '{args.task_folder!s:s}' does not exist. Have you run 'tatr init' yet?"
+        raise TasksFolderNotFoundError (
+            f"The task folder '{args.task_folder!s:s}' does not exist. Have you run 'tatr init' yet?"
         )
 
     return args.task_folder
@@ -291,7 +294,11 @@ def main(args: Namespace):
         case "init":
             args.task_folder.mkdir(exist_ok=False)
         case "ls":
-            print_tasks(args)
+            try:
+                print_tasks(args)
+            except TasksFolderNotFoundError as e:
+                print(f"[ERROR]: {e}", file=sys.stderr)
+                sys.exit(127)
         case "create":
             create_task_id_folder_with_empty_contents(args)
         case _:

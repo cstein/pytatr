@@ -2,6 +2,6 @@
 
  - STATUS: OPEN
  - PRIORITY: 10
- - TAGS: feature, nofix
+ - TAGS: feature, wontfix
 
 This will most likely never be implemented.
