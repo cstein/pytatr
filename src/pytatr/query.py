@@ -11,8 +11,8 @@ class Op_Kind(Enum):
     OP_AND = 3
     OP_OR = 4
     OP_TAGGED = 5
-    OP_STATUS_OPEN = 6
-    OP_STATUS_CLOSED = 7
+    OP_STATUS_IS_OPEN = 6
+    OP_STATUS_IS_CLOSED = 7
     OP_HAS_TAG = 8
 
     def __repr__(self) -> str:
@@ -21,6 +21,10 @@ class Op_Kind(Enum):
 
 @dataclass
 class Op:
+    """Operations allowed by the stack based search engine
+
+    Holds an optional tag
+    """
     kind: Op_Kind
     tag: str | None = None
 
@@ -73,6 +77,12 @@ def parse_not(tokens: list[str]) -> list[Op]:
 
 
 def parse_primary(tokens: list[str]) -> list[Op]:
+    """Parse a primary expression
+
+    A primary expression is the simplest kind og expression.
+
+    :param tokens: the token stream
+    """
     token = chop(tokens)
     if token[0] == ":":
         if not token[1:]:
@@ -85,9 +95,9 @@ def parse_primary(tokens: list[str]) -> list[Op]:
         case "tagged":
             return [Op(Op_Kind.OP_TAGGED)]
         case "open":
-            return [Op(Op_Kind.OP_STATUS_OPEN)]
+            return [Op(Op_Kind.OP_STATUS_IS_OPEN)]
         case "closed":
-            return [Op(Op_Kind.OP_STATUS_CLOSED)]
+            return [Op(Op_Kind.OP_STATUS_IS_CLOSED)]
         case _:
             raise QueryError(f"'{token}' is not a valid keyword.")
 
@@ -105,7 +115,7 @@ def compile_query(tokens: list[str]) -> list[Op]:
 
 
 def query_matches_task(
-    query: list[Op_Kind], task: dict[str, str | int | list[str]]
+    query: list[Op], task: dict[str, str | int | list[str]]
 ) -> bool:
     """Matches a compiled query with a specific task"""
     stack = []
@@ -118,9 +128,9 @@ def query_matches_task(
                 stack.append(not value)
             case Op_Kind.OP_TAGGED:
                 stack.append(len(task["TAGS"]) > 0)
-            case Op_Kind.OP_STATUS_OPEN:
+            case Op_Kind.OP_STATUS_IS_OPEN:
                 stack.append(task["STATUS"].upper() == "OPEN")
-            case Op_Kind.OP_STATUS_CLOSED:
+            case Op_Kind.OP_STATUS_IS_CLOSED:
                 stack.append(task["STATUS"].upper() == "CLOSED")
             case Op_Kind.OP_HAS_TAG:
                 stack.append(op.tag in task["TAGS"])

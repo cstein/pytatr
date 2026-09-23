@@ -27,10 +27,6 @@ CREATE_MARKDOWN = """# $title
 """
 
 
-def unreachable(message: str) -> None:
-    raise RuntimeError(message)
-
-
 class TasksFolderNotFoundError(Exception):
     pass
 
@@ -92,7 +88,7 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
         }
         f.write(s.substitute(mapping))
 
-    print(f"[INFO] Created task: {task_id:s}")
+    print(f"[INFO] Created task: {task_id:s} in.")
 
 
 def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
@@ -156,6 +152,7 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
                 )
         else:
             out_data[name] = value
+        out_data["ID"] = task_id
     return out_data
 
 
@@ -211,7 +208,7 @@ def print_tasks(args: Namespace) -> None:
 
 
 def parse_args() -> Namespace:
-    ap = ArgumentParser()
+    ap = ArgumentParser(description="A local task tracker.")
     ap.add_argument(
         "-f",
         "--task-folder",
