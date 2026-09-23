@@ -152,7 +152,6 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
                 )
         else:
             out_data[name] = value
-        out_data["ID"] = task_id
     return out_data
 
 
