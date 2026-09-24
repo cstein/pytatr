@@ -20,13 +20,55 @@ tatr supports the following commands:
 - `tatr ls <QUERY>` which allows you to write a `<QUERY>` using a simple language (tql - the tatr query language). It is extremely simple and not fully implemented yet.
 
 ## Searching for Tasks
-The `tatr ls` command will by default look for tags that has the status `OPEN` because its default query is `open` so the command is actually `tatr ls open` by default.
+The default `<QUERY>` is `open` and `tatr ls` will by default return the tasks that have the status `OPEN`.
+
 You can also search for tasks that has the status `CLOSED` either using a query like `closed` or even `not open`.
+
 You can search for tags by using the special `:<TAG>` syntax.
 For example, but default, all tasks have `TAGS: bug` which you can search for using the query `:bug`.
+
 In its current installment, you can combine simple queries with a single `and` or `or`.
 For example, so search for tasks that are closed but were not bugs, you could write
 
 ```sh
-tatr ls closed and not :bug
+$ tatr ls closed and not :bug
+.tasks/20260917-944384/TASK.md:1: CLOSED [PRIORITY:  50] [feature] print tas...
+.tasks/20260917-701743/TASK.md:1: CLOSED [PRIORITY:  60] [feature] cap print...
+.tasks/20260915-583503/TASK.md:1: CLOSED [PRIORITY: 100] [feature] Implement...
+.tasks/20260917-594907/TASK.md:1: CLOSED [PRIORITY: 100] [feature] sorting o...
+.tasks/20260917-647548/TASK.md:1: CLOSED [PRIORITY: 100] [feature] create ke...
+.tasks/20260917-757207/TASK.md:1: CLOSED [PRIORITY: 100] [feature] search sh...
+.tasks/20260917-774055/TASK.md:1: CLOSED [PRIORITY: 100] [feature] create se...
 ```
+
+### Keywords
+The search only supports a subset of the original [tatr](https://github.com/tsoding/tatr) and will maybe be expanded in the future depending on my needs.
+
+The supported keywords are
+| keyword | meaning |
+|---------|---------|
+| `open`  | has a STATUS: OPEN |
+| `closed`| has a STATUS: CLOSED |
+| `tagged`| has any `<TAG>` in the TAGS field |
+| `any`   | return all tasks |
+| `:<TAG>` | has a tag `<TAG`> in the TAGS field. case sensitive. |
+|---------|------------------|
+
+### Unary Operators
+The search language in pytatr supports a single unary operator
+
+| keyword | meaning |
+|---------|---------|
+| `not`   | negates a keyword |
+|---------|------------------|
+
+### Binary Operators
+The search language in pytatr supports two binary operators
+
+| keyword | meaning |
+|---------|---------|
+| `and`   | evaluates to true of both `<A> and <B>` are fulfilled. |
+| `or`   | evaluates to true of either `<A> or <B>` are fulfilled. |
+|---------|------------------|
+
+**NB:** be aware that in pytatr you cannot chain long expressions of binary operators.
