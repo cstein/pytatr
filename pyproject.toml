@@ -8,6 +8,7 @@ dynamic = ["version"]
 requires-python = ">=3.12"
 description = "Task Tracker in python"
 dependencies = [
+    "mistune>=3,<4",
 ]
 
 [project.optional-dependencies]

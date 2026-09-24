@@ -7,11 +7,18 @@ The goal is to have some feature parity (to my own needs at least) with the OG [
 For me, it is a purely recreational programming project, but I also see the idea and value of the original project so it was an interesting quest.
 
 ## Installation
+
+pytatr requires Python 3.12 or later. Clone the repository, create a virtual environment, and install the package:
+
 ```sh
 git clone https://github.com/cstein/pytatr.git
-pip install -e .[dev]
+cd pytatr
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
 ```
-and now you have the `tatr` command available to you.
+
+This installs pytatr and its runtime dependencies and makes the `tatr` command available. To install the development tools as well, use `python -m pip install -e ".[dev]"` instead.
 
 ## Usage
 tatr supports the following commands:
