@@ -52,7 +52,6 @@ The supported keywords are
 | `tagged`| has any `<TAG>` in the TAGS field |
 | `any`   | return all tasks |
 | `:<TAG>` | has a tag `<TAG`> in the TAGS field. case sensitive. |
-|---------|------------------|
 
 ### Unary Operators
 The search language in pytatr supports a single unary operator
@@ -60,7 +59,6 @@ The search language in pytatr supports a single unary operator
 | keyword | meaning |
 |---------|---------|
 | `not`   | negates a keyword |
-|---------|------------------|
 
 ### Binary Operators
 The search language in pytatr supports two binary operators
@@ -69,6 +67,6 @@ The search language in pytatr supports two binary operators
 |---------|---------|
 | `and`   | evaluates to true of both `<A> and <B>` are fulfilled. |
 | `or`   | evaluates to true of either `<A> or <B>` are fulfilled. |
-|---------|------------------|
 
-**NB:** be aware that in pytatr you cannot chain long expressions of binary operators.
+> [!IMPORTANT]
+> Be aware that in pytatr you cannot chain long expressions of binary operators.
