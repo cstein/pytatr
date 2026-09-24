@@ -1,14 +1,14 @@
 # pytatr
-python implementation of the TAsk TRacker idea.
+A python implementation of the TAsk TRacker ([tatr](https://github.com/tsoding/tatr)) idea to keep tasks anchored in the repo and not through some 3rd party broker.
 
 ## Goal
-The goal is to have some feature parity (to my own needs at least) with the OG [tatr by tsoding](https://github.com/tsoding/tatr).
+The goal is to have some feature parity (to my own needs at least) with the OG [tatr](https://github.com/tsoding/tatr) and to learn about stack based searches which was my original interest.
 
-For me, it is a purely recreational programming project, but I also see the idea and value of the original project.
+For me, it is a purely recreational programming project, but I also see the idea and value of the original project so it was an interesting quest.
 
 ## Installation
 ```sh
-git clone XX
+git clone https://github.com/cstein/pytatr.git
 pip install -e .[dev]
 ```
 and now you have the `tatr` command available to you.
