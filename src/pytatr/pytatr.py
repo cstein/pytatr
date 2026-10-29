@@ -206,6 +206,57 @@ def print_tasks(args: Namespace) -> None:
         print(task)
 
 
+def resolve_task_id(args: Namespace) -> str:
+    task_folder = require_task_folder(args)
+    found_ids = []
+    for child in task_folder.iterdir():
+
+        # full match first
+        if child.match(args.id):
+            found_ids.append(child.stem)
+
+        if child.match(f"*-{args.id}*"):
+            found_ids.append(child.stem)
+
+    unique_ids = set(found_ids)
+    if not unique_ids:
+        print(f"[ERROR]: no task matches '{args.id}'")
+        sys.exit(3)
+    elif len(unique_ids) > 1:
+        print(f"[ERROR]: '{args.id}' is ambiguous: {', '.join([i for i in unique_ids])}")
+        sys.exit(3)
+    return unique_ids.pop()
+
+
+def show_task(args: Namespace):
+    task_folder = require_task_folder(args)
+    task_id = resolve_task_id(args)
+    task_file = task_folder / task_id / Path("TASK.md")
+    try:
+        task = parse_task_file(task_file)
+    except MarkdownParseError as e:
+        print(f"[WARNING]: {e}", file=sys.stderr)
+
+    t = TaskPrintOut(
+            task_file=task_file,
+            status=task.get("STATUS", "ERROR"),
+            priority=task.get("PRIORITY", -1),
+            tags=task.get("TAGS", []),
+            header=task.get("HEADER"),
+        )
+    format_str = "{0:<12s}{1:s}\n"
+    s  = format_str.format("id:", task_id)
+    s += format_str.format("title:", t.header)
+    s += format_str.format("status:", t.status)
+    s += format_str.format("priority:", str(t.priority))
+    s += format_str.format("tags:", ", ".join(t.tags))
+    s += format_str.format("depends:", "NONE")
+    files = ", ".join([child.name for child in (task_folder / task_id).iterdir()])
+    s += format_str.format("files:", files)
+    s += format_str.format("path:", str(task_file))
+    print(s)
+
+
 def parse_args() -> Namespace:
     ap = ArgumentParser(description="A local task tracker.")
     ap.add_argument(
@@ -284,6 +335,15 @@ def parse_args() -> Namespace:
         "-v", dest="verbose", default=False, action="store_true", help="verbose output."
     )
 
+    ap_show = subparsers.add_parser("show", help="show a note")
+    ap_show.add_argument(
+        "id",
+        default=None,
+        # nargs="+",
+        type=str,
+        help="id of the task. can be fuzzy",
+    )
+
     return ap.parse_args()
 
 
@@ -306,6 +366,8 @@ def main(args: Namespace):
                     print(f"[ERROR]: priority {args.prioriy:d} outside 1-100 (1 = least, 100 = most important)", file=sys.stderr)
                     sys.exit(4)
                 create_task_id_folder_with_empty_contents(args)
+            case "show":
+                show_task(args)
             case _:
                 print(f"[ERROR]: command {args.command} does not exist", file=sys.stderr)
                 sys.exit(3)
