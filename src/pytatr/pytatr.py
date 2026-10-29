@@ -25,7 +25,6 @@ CREATE_MARKDOWN = """# $title
  - TAGS: $tags
  - DEPENDS: $depends
 
-[description here]
 """
 
 
@@ -94,7 +93,7 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
     print(f"[INFO] Created task: {task_id:s} in.")
 
 
-def parse_task_file(filename: Path, task_id: str) -> Task:
+def parse_task_file(filename: Path) -> Task:
     def parse_header(heading_node: dict) -> str:
         assert heading_node["type"] == "heading", (
             f"could not find heading in expected header entry {value!s:s}"
@@ -128,6 +127,7 @@ def parse_task_file(filename: Path, task_id: str) -> Task:
         assert seperator, "could not find expected : in string"
         return name.strip(), value.strip()
 
+    task_id = filename.parent.stem
     with filename.open("r") as f:
         text = "".join(f.readlines())
 
@@ -172,6 +172,15 @@ def parse_task_file(filename: Path, task_id: str) -> Task:
         header=out_data.get("HEADER"),
     )
 
+def get_task_from_file(filename: Path) -> Task:
+    try:
+        task = parse_task_file(task_file)
+    except MarkdownParseError as e:
+        print(f"[ERROR]: {e}", file=sys.stderr)
+        sys.exit(6)
+    else:
+        return task
+
 
 def print_tasks(args: Namespace) -> None:
     task_folder = require_task_folder(args)
@@ -182,12 +191,7 @@ def print_tasks(args: Namespace) -> None:
     tasks_to_print: list[Task] = []
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
-        task_id = child.stem
-        try:
-            task = parse_task_file(task_file, task_id)
-        except MarkdownParseError as e:
-            print(f"[WARNING]: {e}", file=sys.stderr)
-            continue
+        task = get_task_from_file(task_file)
 
         if query_matches_task(query, task):
             format_header = task.header
@@ -233,10 +237,7 @@ def show_task(args: Namespace):
     task_folder = require_task_folder(args)
     task_id = resolve_task_id(args)
     task_file = task_folder / task_id / Path("TASK.md")
-    try:
-        task = parse_task_file(task_file, task_id)
-    except MarkdownParseError as e:
-        print(f"[WARNING]: {e}", file=sys.stderr)
+    task = get_task_from_file(task_file)
 
     format_str = "{0:<12s}{1:s}\n"
     s = format_str.format("id:", task.task_id)
@@ -244,7 +245,13 @@ def show_task(args: Namespace):
     s += format_str.format("status:", task.status)
     s += format_str.format("priority:", str(task.priority))
     s += format_str.format("tags:", ", ".join(task.tags))
-    s += format_str.format("depends:", ", ".join(task.depends))
+    # any dependencies must have status as well
+    depends = []
+    for depend_task_id in task.depends:
+        depend_task_file = task_folder / depend_task_id / Path("TASK.md")
+        depend_task = parse_task_file(depend_task_file)
+        depends.append(f"{depend_task_id:s} ({depend_task.status.upper()})")
+    s += format_str.format("depends:", ", ".join(depends))
     files = ", ".join([child.name for child in (task_folder / task_id).iterdir()])
     s += format_str.format("files:", files)
     s += format_str.format("path:", str(task_file))
@@ -356,9 +363,9 @@ def main(args: Namespace):
                     print(f"[ERROR]: {e}", file=sys.stderr)
                     sys.exit(2)
             case "create":
-                if args.priority > 100:
+                if args.priority > 100 or args.priority < 1:
                     print(
-                        f"[ERROR]: priority {args.prioriy:d} outside 1-100 (1 = least, 100 = most important)",
+                        f"[ERROR]: priority {args.priority:d} outside 1-100 (1 = least, 100 = most important)",
                         file=sys.stderr,
                     )
                     sys.exit(4)
