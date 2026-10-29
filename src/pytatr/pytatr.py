@@ -22,6 +22,7 @@ CREATE_MARKDOWN = """# $title
  - STATUS: OPEN
  - PRIORITY: $priority
  - TAGS: $tags
+ - DEPENDS: $depends
 
 [description here]
 """
@@ -85,6 +86,7 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
             "title": args.title,
             "priority": str(args.priority),
             "tags": ", ".join(args.tags),
+            "depends": ", ".join([])
         }
         f.write(s.substitute(mapping))
 
@@ -134,12 +136,12 @@ def parse_task_file(filename: Path) -> dict[str, str | int | list[str]]:
         md.pop(0)
     children = parse_list(md.pop(0))
 
-    required_keys = ["STATUS", "PRIORITY", "TAGS"]
-    out_types = {"STATUS": str, "PRIORITY": int, "TAGS": to_list}
-    out_data = {"HEADER": header, "TAGS": [], "PRIORITY": 100, "STATUS": ""}
+    required_keys = ["STATUS", "PRIORITY", "TAGS", "DEPENDS"]
+    out_types = {"STATUS": str, "PRIORITY": int, "TAGS": to_list, "DEPENDS": to_list}
+    out_data = {"HEADER": header, "TAGS": [], "PRIORITY": 100, "STATUS": "", "DEPENDS": []}
 
-    assert len(children) >= 3, (
-        "specification requires at least 3 elements: TAGS, PRIORITY, STATUS"
+    assert len(children) >= 4, (
+        "specification requires at least 4 elements: TAGS, PRIORITY, STATUS, DEPENDS"
     )
     while len(children) > 0:
         name, value = parse_list_item(children.pop(0))
@@ -161,6 +163,7 @@ class TaskPrintOut:
     status: str
     priority: int
     tags: list[str]
+    depends: list[str]
     header: str
 
     def __str__(self):
@@ -192,6 +195,7 @@ def print_tasks(args: Namespace) -> None:
                     status=task.get("STATUS", "ERROR"),
                     priority=task.get("PRIORITY", -1),
                     tags=task.get("TAGS", []),
+                    depends=task.get("DEPENDS", []),
                     header=format_header,
                 )
             )
@@ -242,15 +246,17 @@ def show_task(args: Namespace):
             status=task.get("STATUS", "ERROR"),
             priority=task.get("PRIORITY", -1),
             tags=task.get("TAGS", []),
+            depends=task.get("DEPENDS", []),
             header=task.get("HEADER"),
         )
+
     format_str = "{0:<12s}{1:s}\n"
     s  = format_str.format("id:", task_id)
     s += format_str.format("title:", t.header)
     s += format_str.format("status:", t.status)
     s += format_str.format("priority:", str(t.priority))
     s += format_str.format("tags:", ", ".join(t.tags))
-    s += format_str.format("depends:", "NONE")
+    s += format_str.format("depends:", ", ".join(t.depends))
     files = ", ".join([child.name for child in (task_folder / task_id).iterdir()])
     s += format_str.format("files:", files)
     s += format_str.format("path:", str(task_file))

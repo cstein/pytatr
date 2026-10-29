@@ -3,6 +3,7 @@
  - STATUS: CLOSED
  - PRIORITY: 100
  - TAGS: feature
+ - DEPENDS:
 
 There is currently no sorting, but I could / would imagine that it would be beneficial to be able to sort by task id (which is effectively date) or priority.
 

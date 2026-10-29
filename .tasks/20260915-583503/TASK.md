@@ -3,6 +3,7 @@
  - STATUS: CLOSED
  - PRIORITY: 100
  - TAGS: feature
+ - DEPENDS:
  - RELATED: 0260917-757207
 
 We should implement search like the original tatr functionality.
