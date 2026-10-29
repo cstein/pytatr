@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from enum import Enum
 import sys
 
+from pytatr.task import Task
+
 
 class Op_Kind(Enum):
     """Kind of operation supported"""
@@ -25,6 +27,7 @@ class Op:
 
     Holds an optional tag
     """
+
     kind: Op_Kind
     tag: str | None = None
 
@@ -115,7 +118,8 @@ def compile_query(tokens: list[str]) -> list[Op]:
 
 
 def query_matches_task(
-    query: list[Op], task: dict[str, str | int | list[str]]
+    query: list[Op],
+    task: Task,
 ) -> bool:
     """Matches a compiled query with a specific task"""
     stack = []
@@ -127,13 +131,13 @@ def query_matches_task(
                 value = stack.pop()
                 stack.append(not value)
             case Op_Kind.OP_TAGGED:
-                stack.append(len(task["TAGS"]) > 0)
+                stack.append(len(task.tags) > 0)
             case Op_Kind.OP_STATUS_IS_OPEN:
-                stack.append(task["STATUS"].upper() == "OPEN")
+                stack.append(task.status.upper() == "OPEN")
             case Op_Kind.OP_STATUS_IS_CLOSED:
-                stack.append(task["STATUS"].upper() == "CLOSED")
+                stack.append(task.status.upper() == "CLOSED")
             case Op_Kind.OP_HAS_TAG:
-                stack.append(op.tag in task["TAGS"])
+                stack.append(op.tag in task.tags)
             case Op_Kind.OP_AND:
                 a = stack.pop()
                 b = stack.pop()
