@@ -302,9 +302,13 @@ def main(args: Namespace):
                     print(f"[ERROR]: {e}", file=sys.stderr)
                     sys.exit(2)
             case "create":
+                if args.priority > 100:
+                    print(f"[ERROR]: priority {args.prioriy:d} outside 1-100 (1 = least, 100 = most important)", file=sys.stderr)
+                    sys.exit(4)
                 create_task_id_folder_with_empty_contents(args)
             case _:
-                sys.exit(2)
+                print(f"[ERROR]: command {args.command} does not exist", file=sys.stderr)
+                sys.exit(3)
     except (FileExistsError, TasksFolderNotFoundError) as e:
         print(f"[ERROR]: {e}", file=sys.stderr)
         sys.exit(1)
