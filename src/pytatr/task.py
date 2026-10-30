@@ -104,7 +104,19 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
     depends = []
     for depend_task_id in task.depends:
         depend_task_file = task_folder / depend_task_id / Path("TASK.md")
-        depends.append(parse_task_file(depend_task_file))
+        if depend_task_file.exists():
+            depends.append(parse_task_file(depend_task_file))
+        else:
+            # TODO (CS) cleanup code for dummy dependency. see 20261030-834808
+            depends.append(
+                    Task(task_id=depend_task_id,
+                         task_file=depend_task_file,
+                         status="MISSING",
+                         priority=1,
+                         header="ERROR",
+                         tags=[],
+                         depends=[])
+                    )
         # depends.append(f"{depend_task_id:s} ({depend_task.status.upper()})")
     return depends
 
