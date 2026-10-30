@@ -14,6 +14,7 @@ from pytatr.task import (
     format_task_as_json,
     format_task_as_multiline,
     format_task_as_single_line,
+    format_tasks_as_json,
     parse_task_file,
     Task,
 )
@@ -134,12 +135,12 @@ def print_query_tasks(args: Namespace) -> None:
     if args.sort_reversed:
         output = reversed(output)
 
-    for task in output:
-        # print(format_json(task))
-        if not args.output_json:
+
+    if not args.output_json:
+        for task in output:
             print(format_task_as_single_line(task))
-        else:
-            print(format_task_as_json(task, task_folder))
+    else:
+        print(format_tasks_as_json(output, task_folder))
 
 
 def resolve_task_id(args: Namespace) -> str:

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import json
 from pathlib import Path
 
@@ -145,7 +145,7 @@ def format_task_as_multiline(task: Task, task_folder: Path) -> str:
     return s
 
 
-def format_task_as_json(task: Task, task_folder: Path):
+def task_to_dict(task: Task, task_folder: Path) -> dict[str, str | int | list]:
     """formats output as json"""
     depends = [
         {
@@ -156,8 +156,7 @@ def format_task_as_json(task: Task, task_folder: Path):
         for depend_task in build_task_dependencies(task, task_folder)
     ]
     files = [child.name for child in (task_folder / task.task_id).iterdir()]
-    return json.dumps(
-        {
+    return {
             "id": task.task_id,
             "title": task.header,
             "status": task.status,
@@ -167,4 +166,11 @@ def format_task_as_json(task: Task, task_folder: Path):
             "files": files,
             "path": str(task.task_file),
         }
-    )
+
+
+def format_task_as_json(task: Task, task_folder: Path) -> str:
+    return json.dumps(task_to_dict(task, task_folder))
+
+
+def format_tasks_as_json(tasks: list[Task], task_folder: Path) -> str:
+    return json.dumps([task_to_dict(task, task_folder) for task in tasks])
