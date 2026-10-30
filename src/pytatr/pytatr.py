@@ -90,7 +90,8 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
         }
         f.write(s.substitute(mapping))
 
-    print(f"[INFO] Created task: {task_id:s} in.")
+    print(f"[INFO] Created task: {task_id:s}", file=sys.stderr)
+    print(f"{task_id:s}", file=sys.stdout)
 
 
 def parse_task_file(filename: Path) -> Task:
@@ -116,6 +117,8 @@ def parse_task_file(filename: Path) -> Task:
 
     def to_list(value: str, key: str = ",") -> list[str]:
         assert isinstance(value, str)
+        if len(value) == 0:
+            return []
         return [m.strip() for m in value.split(key)]
 
     def parse_list_item(node: dict) -> tuple[str, str]:
@@ -174,7 +177,7 @@ def parse_task_file(filename: Path) -> Task:
 
 def get_task_from_file(filename: Path) -> Task:
     try:
-        task = parse_task_file(task_file)
+        task = parse_task_file(filename)
     except MarkdownParseError as e:
         print(f"[ERROR]: {e}", file=sys.stderr)
         sys.exit(6)
