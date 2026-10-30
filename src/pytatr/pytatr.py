@@ -8,9 +8,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from string import Template
 
-import mistune
 
-from pytatr.task import Task
+from pytatr.task import (
+    build_task_dependencies,
+    format_task_as_json,
+    format_task_as_multiline,
+    format_task_as_single_line,
+    parse_task_file,
+    Task,
+)
 from pytatr.query import compile_query, query_matches_task, QueryError
 
 CHARS = "0123456789"
@@ -94,87 +100,6 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
     print(f"{task_id:s}", file=sys.stdout)
 
 
-def parse_task_file(filename: Path) -> Task:
-    def parse_header(heading_node: dict) -> str:
-        assert heading_node["type"] == "heading", (
-            f"could not find heading in expected header entry {value!s:s}"
-        )
-        assert heading_node["attrs"]["level"] == 1
-        assert len(heading_node["children"]) == 1, (
-            "unexpected number of children for heading element"
-        )
-        text_node = heading_node["children"][0]
-        assert text_node["type"] == "text"
-        return text_node["raw"]
-
-    def next_item_is_blank(node: dict) -> bool:
-        return node["type"] == "blank_line"
-
-    def parse_list(node: dict) -> list[dict]:
-        assert node["type"] == "list"
-        assert len(node["children"]) > 0
-        return node["children"]
-
-    def to_list(value: str, key: str = ",") -> list[str]:
-        assert isinstance(value, str)
-        if len(value) == 0:
-            return []
-        return [m.strip() for m in value.split(key)]
-
-    def parse_list_item(node: dict) -> tuple[str, str]:
-        assert node["type"] == "list_item"
-        content = node["children"][0]["children"][0]
-        assert "raw" in content
-        raw = content["raw"]
-        name, seperator, value = raw.partition(":")
-        assert seperator, "could not find expected : in string"
-        return name.strip(), value.strip()
-
-    task_id = filename.parent.stem
-    with filename.open("r") as f:
-        text = "".join(f.readlines())
-
-    md = mistune.markdown(text, renderer="ast")
-    header = parse_header(md.pop(0))
-    while next_item_is_blank(md[0]):
-        md.pop(0)
-    children = parse_list(md.pop(0))
-
-    required_keys = ["STATUS", "PRIORITY", "TAGS", "DEPENDS"]
-    out_types = {"STATUS": str, "PRIORITY": int, "TAGS": to_list, "DEPENDS": to_list}
-    out_data = {
-        "HEADER": header,
-        "TAGS": [],
-        "PRIORITY": 100,
-        "STATUS": "",
-        "DEPENDS": [],
-    }
-
-    assert len(children) >= 4, (
-        "specification requires at least 4 elements: TAGS, PRIORITY, STATUS, DEPENDS"
-    )
-    while len(children) > 0:
-        name, value = parse_list_item(children.pop(0))
-        if name in required_keys:
-            try:
-                out_data[name] = out_types[name](value)
-            except ValueError:
-                raise MarkdownParseError(
-                    f"while parsing file '{filename!s:s}' the field {name:s} conversion to {out_types[name]!s:s} failed with value {value:s}"
-                )
-        else:
-            out_data[name] = value
-
-    return Task(
-        task_file=filename,
-        task_id=task_id,
-        status=out_data.get("STATUS", "ERROR"),
-        priority=out_data.get("PRIORITY", -1),
-        tags=out_data.get("TAGS", []),
-        depends=out_data.get("DEPENDS", []),
-        header=out_data.get("HEADER"),
-    )
-
 def get_task_from_file(filename: Path) -> Task:
     try:
         task = parse_task_file(filename)
@@ -185,7 +110,7 @@ def get_task_from_file(filename: Path) -> Task:
         return task
 
 
-def print_tasks(args: Namespace) -> None:
+def print_query_tasks(args: Namespace) -> None:
     task_folder = require_task_folder(args)
 
     query = compile_query(args.query[:])
@@ -210,7 +135,11 @@ def print_tasks(args: Namespace) -> None:
         output = reversed(output)
 
     for task in output:
-        print(task)
+        # print(format_json(task))
+        if not args.output_json:
+            print(format_task_as_single_line(task))
+        else:
+            print(format_task_as_json(task, task_folder))
 
 
 def resolve_task_id(args: Namespace) -> str:
@@ -236,29 +165,16 @@ def resolve_task_id(args: Namespace) -> str:
     return unique_ids.pop()
 
 
-def show_task(args: Namespace):
+def show_single_task(args: Namespace):
+    """multiline information for a single task"""
     task_folder = require_task_folder(args)
     task_id = resolve_task_id(args)
     task_file = task_folder / task_id / Path("TASK.md")
     task = get_task_from_file(task_file)
-
-    format_str = "{0:<12s}{1:s}\n"
-    s = format_str.format("id:", task.task_id)
-    s += format_str.format("title:", task.header)
-    s += format_str.format("status:", task.status)
-    s += format_str.format("priority:", str(task.priority))
-    s += format_str.format("tags:", ", ".join(task.tags))
-    # any dependencies must have status as well
-    depends = []
-    for depend_task_id in task.depends:
-        depend_task_file = task_folder / depend_task_id / Path("TASK.md")
-        depend_task = parse_task_file(depend_task_file)
-        depends.append(f"{depend_task_id:s} ({depend_task.status.upper()})")
-    s += format_str.format("depends:", ", ".join(depends))
-    files = ", ".join([child.name for child in (task_folder / task_id).iterdir()])
-    s += format_str.format("files:", files)
-    s += format_str.format("path:", str(task_file))
-    print(s)
+    if not args.output_json:
+        print(format_task_as_multiline(task, task_folder))
+    else:
+        print(format_task_as_json(task, task_folder))
 
 
 def parse_args() -> Namespace:
@@ -333,6 +249,13 @@ def parse_args() -> Namespace:
         action="store_true",
         help="use priority to sort tasks",
     )
+    ap_list.add_argument(
+        "--json",
+        dest="output_json",
+        action="store_true",
+        default=False,
+        help="output json instead of plain text",
+    )
 
     ap_init = subparsers.add_parser("init", help="Creates the task folder.")
     ap_init.add_argument(
@@ -346,6 +269,13 @@ def parse_args() -> Namespace:
         # nargs="+",
         type=str,
         help="id of the task. can be fuzzy",
+    )
+    ap_show.add_argument(
+        "--json",
+        dest="output_json",
+        action="store_true",
+        default=False,
+        help="output json instead of plain text",
     )
 
     return ap.parse_args()
@@ -361,7 +291,7 @@ def main(args: Namespace):
                 args.task_folder.mkdir(exist_ok=False)
             case "ls":
                 try:
-                    print_tasks(args)
+                    print_query_tasks(args)
                 except QueryError as e:
                     print(f"[ERROR]: {e}", file=sys.stderr)
                     sys.exit(2)
@@ -374,7 +304,7 @@ def main(args: Namespace):
                     sys.exit(4)
                 create_task_id_folder_with_empty_contents(args)
             case "show":
-                show_task(args)
+                show_single_task(args)
             case _:
                 print(
                     f"[ERROR]: command {args.command} does not exist", file=sys.stderr
