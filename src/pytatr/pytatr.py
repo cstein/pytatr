@@ -106,7 +106,7 @@ def get_task_from_file(filename: Path) -> Task:
         task = parse_task_file(filename)
     except MarkdownParseError as e:
         print(f"[ERROR]: {e}", file=sys.stderr)
-        sys.exit(6)
+        sys.exit(3)
     else:
         return task
 
