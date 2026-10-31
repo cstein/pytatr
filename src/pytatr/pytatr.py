@@ -5,6 +5,7 @@ import sys
 import time
 from argparse import Action, ArgumentParser, Namespace
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from string import Template
 
@@ -24,6 +25,14 @@ CHARS = "0123456789"
 NUM_CHARS = 6
 MAX_HEADER_PRINT_LEN = 100
 
+# Exit codes
+ERROR_OK = 0
+ERROR_FOLDER = 1
+ERROR_QUERY = 2
+ERROR_TASK = 3
+ERROR_CREATE = 4
+ERROR_USAGE = 5
+
 
 CREATE_MARKDOWN = """# $title
 
@@ -33,6 +42,7 @@ CREATE_MARKDOWN = """# $title
  - DEPENDS: $depends
 
 """
+
 
 
 class TasksFolderNotFoundError(Exception):
@@ -106,7 +116,7 @@ def get_task_from_file(filename: Path) -> Task:
         task = parse_task_file(filename)
     except MarkdownParseError as e:
         print(f"[ERROR]: {e}", file=sys.stderr)
-        sys.exit(3)
+        sys.exit(ERROR_TASK)
     else:
         return task
 
@@ -157,12 +167,12 @@ def resolve_task_id(args: Namespace) -> str:
     unique_ids = set(found_ids)
     if not unique_ids:
         print(f"[ERROR]: no task matches '{args.id}'")
-        sys.exit(3)
+        sys.exit(ERROR_TASK)
     elif len(unique_ids) > 1:
         print(
             f"[ERROR]: '{args.id}' is ambiguous: {', '.join([i for i in unique_ids])}"
         )
-        sys.exit(3)
+        sys.exit(ERROR_TASK)
     return unique_ids.pop()
 
 
@@ -295,14 +305,14 @@ def main(args: Namespace):
                     print_query_tasks(args)
                 except QueryError as e:
                     print(f"[ERROR]: {e}", file=sys.stderr)
-                    sys.exit(2)
+                    sys.exit(ERROR_QUERY)
             case "create":
                 if args.priority > 100 or args.priority < 1:
                     print(
                         f"[ERROR]: priority {args.priority:d} outside 1-100 (1 = least, 100 = most important)",
                         file=sys.stderr,
                     )
-                    sys.exit(4)
+                    sys.exit(ERROR_CREATE)
                 create_task_id_folder_with_empty_contents(args)
             case "show":
                 show_single_task(args)
@@ -310,11 +320,11 @@ def main(args: Namespace):
                 print(
                     f"[ERROR]: command {args.command} does not exist", file=sys.stderr
                 )
-                sys.exit(3)
+                sys.exit(ERROR_USAGE)
     except (FileExistsError, TasksFolderNotFoundError) as e:
         print(f"[ERROR]: {e}", file=sys.stderr)
-        sys.exit(1)
-    sys.exit(0)
+        sys.exit(ERROR_FOLDER)
+    sys.exit(ERROR_OK)
 
 
 def cli():
