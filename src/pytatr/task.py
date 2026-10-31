@@ -1,5 +1,6 @@
-from dataclasses import dataclass, asdict
 import json
+import sys
+from dataclasses import dataclass, asdict
 from pathlib import Path
 
 import mistune
@@ -111,7 +112,7 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
     # we use a set to ignore duplicates
     for depend_task_id in set(task.depends):
         if depend_task_id == task.task_id:
-            print(f"[WARNING]: Task {task.task_id:s} depends on itself. Ignored.")
+            print(f"[WARNING]: Task {task.task_id:s} depends on itself. Ignored.", file=sys.stderr)
             continue
 
         depend_task_file = task_folder / depend_task_id / Path("TASK.md")

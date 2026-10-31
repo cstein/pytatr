@@ -134,7 +134,7 @@ def print_query_tasks(args: Namespace) -> None:
         try:
             task = get_task_from_file(task_file)
         except RequiredElementsNotFoundError:
-            print(f"[ERROR]: {str(child):s}: could not parse due to missing required tags.")
+            print(f"[ERROR]: {str(child):s}: could not parse due to missing required keys.", file=sys.stderr)
             continue
 
         if query_matches_task(query, task):
@@ -171,11 +171,12 @@ def resolve_task_id(args: Namespace) -> str:
 
     unique_ids = set(found_ids)
     if not unique_ids:
-        print(f"[ERROR]: no task matches '{args.id}'")
+        print(f"[ERROR]: no task matches '{args.id}'", file=sys.stderr)
         sys.exit(ERROR_TASK)
     elif len(unique_ids) > 1:
         print(
-            f"[ERROR]: '{args.id}' is ambiguous: {', '.join([i for i in unique_ids])}"
+            f"[ERROR]: '{args.id}' is ambiguous: {', '.join([i for i in unique_ids])}",
+            file=sys.stderr,
         )
         sys.exit(ERROR_TASK)
     return unique_ids.pop()
@@ -186,7 +187,12 @@ def show_single_task(args: Namespace):
     task_folder = require_task_folder(args)
     task_id = resolve_task_id(args)
     task_file = task_folder / task_id / Path("TASK.md")
-    task = get_task_from_file(task_file)
+    try:
+        task = get_task_from_file(task_file)
+    except RequiredElementsNotFoundError:
+        print(f"[ERROR]: {str(task_id):s}: could not parse due to missing required keys.", file=sys.stderr)
+        return
+
     if not args.output_json:
         print(format_task_as_multiline(task, task_folder))
     else:
