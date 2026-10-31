@@ -9,6 +9,9 @@ import mistune
 class RequiredElementsNotFoundError(ValueError):
     pass
 
+class MarkdownConvertValueError(Exception):
+    pass
+
 
 @dataclass
 class Task:
@@ -88,8 +91,8 @@ def parse_task_file(filename: Path) -> Task:
             try:
                 out_data[name] = out_types[name](value)
             except ValueError:
-                raise MarkdownParseError(
-                    f"while parsing file '{filename!s:s}' the field {name:s} conversion to {out_types[name]!s:s} failed with value {value:s}"
+                raise MarkdownConvertValueError(
+                        f"field {name:s} conversion to {out_types[name]!s:s} failed to convert value {value:s} of type {type(value)!s:s}"
                 )
         else:
             out_data[name] = value
@@ -112,7 +115,7 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
     # we use a set to ignore duplicates
     for depend_task_id in set(task.depends):
         if depend_task_id == task.task_id:
-            print(f"[WARNING]: Task {task.task_id:s} depends on itself. Ignored.", file=sys.stderr)
+            print(f"[WARNING]: {task.task_id:s}: Task depends recursively on itself. Ignored.", file=sys.stderr)
             continue
 
         depend_task_file = task_folder / depend_task_id / Path("TASK.md")

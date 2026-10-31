@@ -19,6 +19,7 @@ from pytatr.task import (
     parse_task_file,
     Task,
     RequiredElementsNotFoundError,
+    MarkdownConvertValueError,
 )
 from pytatr.query import compile_query, query_matches_task, QueryError
 
@@ -50,8 +51,6 @@ class TasksFolderNotFoundError(Exception):
     pass
 
 
-class MarkdownParseError(Exception):
-    pass
 
 
 def require_task_folder(args: Namespace) -> Path:
@@ -112,16 +111,6 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
     print(f"{task_id:s}", file=sys.stdout)
 
 
-def get_task_from_file(filename: Path) -> Task:
-    try:
-        task = parse_task_file(filename)
-    except MarkdownParseError as e:
-        print(f"[ERROR]: {e}", file=sys.stderr)
-        sys.exit(ERROR_TASK)
-    else:
-        return task
-
-
 def print_query_tasks(args: Namespace) -> None:
     task_folder = require_task_folder(args)
 
@@ -132,15 +121,15 @@ def print_query_tasks(args: Namespace) -> None:
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
         try:
-            task = get_task_from_file(task_file)
+            task = parse_task_file(task_file)
         except RequiredElementsNotFoundError:
-            print(f"[ERROR]: {str(child):s}: could not parse due to missing required keys.", file=sys.stderr)
+            print(f"[ERROR]: {str(child.stem):s}: could not parse due to missing required fields.", file=sys.stderr)
+            continue
+        except MarkdownConvertValueError as e:
+            print(f"[ERROR]: {str(child.stem):s}: {e}", file=sys.stderr)
             continue
 
         if query_matches_task(query, task):
-            format_header = task.header
-            if len(task.header) > args.header_length:
-                task.header = format_header[: args.header_length] + "..."
             tasks_to_print.append(task)
 
     output = tasks_to_print
@@ -149,7 +138,6 @@ def print_query_tasks(args: Namespace) -> None:
 
     if args.sort_reversed:
         output = reversed(output)
-
 
     if not args.output_json:
         for task in output:
@@ -171,7 +159,7 @@ def resolve_task_id(args: Namespace) -> str:
 
     unique_ids = set(found_ids)
     if not unique_ids:
-        print(f"[ERROR]: no task matches '{args.id}'", file=sys.stderr)
+        print(f"[ERROR]: {args.id}: search found no matching tasks''", file=sys.stderr)
         sys.exit(ERROR_TASK)
     elif len(unique_ids) > 1:
         print(
@@ -250,12 +238,6 @@ def parse_args() -> Namespace:
         default=["open"],
         nargs="*",
         help="Search query for tasks. Default is 'open'.",
-    )
-    ap_list.add_argument(
-        "--header-length",
-        default=MAX_HEADER_PRINT_LEN,
-        type=int,
-        help="maximum length of header to display. Default is %(default)s.",
     )
     ap_list.add_argument(
         "-r",
