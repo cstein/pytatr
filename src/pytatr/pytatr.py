@@ -18,7 +18,8 @@ from pytatr.task import (
     format_tasks_as_json,
     parse_task_file,
     Task,
-    RequiredElementsNotFoundError,
+    TaskHeaderNotFoundError,
+    RequiredElementNotFoundError,
     MarkdownConvertValueError,
 )
 from pytatr.query import compile_query, query_matches_task, QueryError
@@ -31,9 +32,11 @@ MAX_HEADER_PRINT_LEN = 100
 ERROR_OK = 0
 ERROR_FOLDER = 1
 ERROR_QUERY = 2
-ERROR_TASK = 3
-ERROR_CREATE = 4
-ERROR_USAGE = 5
+ERROR_TASK_NOT_FOUND = 3
+ERROR_TASK_DUPLICATE = 4
+ERROR_TASK_PARSE = 5
+ERROR_CREATE = 6
+ERROR_USAGE = 7
 
 
 CREATE_MARKDOWN = """# $title
@@ -111,26 +114,24 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
     print(f"{task_id:s}", file=sys.stdout)
 
 
-def print_query_tasks(args: Namespace) -> None:
+def print_query_tasks(args: Namespace) -> bool:
+    # we set success flag to false if we experience error
+    # so we can set the exit flag to ERROR_TASK_PARSE
+    success = True
+
     task_folder = require_task_folder(args)
 
     query = compile_query(args.query[:])
     if args.debug:
-        print("[QUERY]:", query)
+        print("[QUERY]:", query, file=sys.stderr)
     tasks_to_print: list[Task] = []
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
-        try:
-            task = parse_task_file(task_file)
-        except RequiredElementsNotFoundError:
-            print(f"[ERROR]: {str(child.stem):s}: could not parse due to missing required fields.", file=sys.stderr)
-            continue
-        except MarkdownConvertValueError as e:
-            print(f"[ERROR]: {str(child.stem):s}: {e}", file=sys.stderr)
-            continue
-
-        if query_matches_task(query, task):
-            tasks_to_print.append(task)
+        successfully_loaded_task, task = get_task_from_file(task_file, str(child))
+        if successfully_loaded_task:
+            if query_matches_task(query, task):
+                tasks_to_print.append(task)
+        success = success & successfully_loaded_task
 
     output = tasks_to_print
     if args.sort_priority:
@@ -144,6 +145,8 @@ def print_query_tasks(args: Namespace) -> None:
             print(format_task_as_single_line(task))
     else:
         print(format_tasks_as_json(output, task_folder))
+
+    return success
 
 
 def resolve_task_id(args: Namespace) -> str:
@@ -159,35 +162,52 @@ def resolve_task_id(args: Namespace) -> str:
 
     unique_ids = set(found_ids)
     if not unique_ids:
-        print(f"[ERROR]: {args.id}: search found no matching tasks''", file=sys.stderr)
-        sys.exit(ERROR_TASK)
+        print(f"[ERROR]: query '{args.id}' found no matching tasks", file=sys.stderr)
+        sys.exit(ERROR_TASK_NOT_FOUND)
     elif len(unique_ids) > 1:
         print(
-            f"[ERROR]: '{args.id}' is ambiguous: {', '.join([i for i in unique_ids])}",
+            f"[ERROR]: query '{args.id}' is ambiguous: {', '.join([i for i in unique_ids])}",
             file=sys.stderr,
         )
-        sys.exit(ERROR_TASK)
+        sys.exit(ERROR_TASK_DUPLICATE)
     return unique_ids.pop()
 
+def get_task_from_file(task_file: Path, task_id: str) -> tuple[bool, Task | None]:
+    try:
+        task = parse_task_file(task_file)
+    except TaskHeaderNotFoundError as e:
+        print(f"[ERROR]: {task_id:s}: {e} header", file=sys.stderr)
+        return False, None
+    except RequiredElementNotFoundError as e:
+        print(f"[ERROR]: {task_id:s}: required element '{e}' not found", file=sys.stderr)
+        return False, None
+    except MarkdownConvertValueError as e:
+        print(f"[ERROR]: {task_id:s}: {e}", file=sys.stderr)
+        return False, None
+    except FileNotFoundError:
+        print(f"[ERROR]: {task_id:s}: TASK.md file missing", file=sys.stderr)
+        return False, None
+    else:
+        return True, task
 
-def show_single_task(args: Namespace) -> None:
+
+def show_single_task(args: Namespace) -> bool:
     """multiline information for a single task"""
+    success = True
+
     task_folder = require_task_folder(args)
     task_id = resolve_task_id(args)
     task_file = task_folder / task_id / Path("TASK.md")
-    try:
-        task = parse_task_file(task_file)
-    except RequiredElementsNotFoundError:
-        print(f"[ERROR]: {str(task_id):s}: could not parse due to missing required keys.", file=sys.stderr)
-        sys.exit(ERROR_TASK)
-    except MarkdownConvertValueError as e:
-        print(f"[ERROR]: {str(task_id):s}: {e}", file=sys.stderr)
-        sys.exit(ERROR_TASK)
 
-    if not args.output_json:
-        print(format_task_as_multiline(task, task_folder))
-    else:
-        print(format_task_as_json(task, task_folder))
+    success, task = get_task_from_file(task_file, task_id)
+
+    if success:
+        if not args.output_json:
+            print(format_task_as_multiline(task, task_folder))
+        else:
+            print(format_task_as_json(task, task_folder))
+
+    return success
 
 
 def parse_args() -> Namespace:
@@ -298,10 +318,12 @@ def main(args: Namespace):
                 args.task_folder.mkdir(exist_ok=False)
             case "ls":
                 try:
-                    print_query_tasks(args)
+                    success = print_query_tasks(args)
                 except QueryError as e:
                     print(f"[ERROR]: {e}", file=sys.stderr)
                     sys.exit(ERROR_QUERY)
+                if not success:
+                    sys.exit(ERROR_TASK_PARSE)
             case "create":
                 if args.priority > 100 or args.priority < 1:
                     print(
@@ -311,7 +333,9 @@ def main(args: Namespace):
                     sys.exit(ERROR_CREATE)
                 create_task_id_folder_with_empty_contents(args)
             case "show":
-                show_single_task(args)
+                success = show_single_task(args)
+                if not success:
+                    sys.exit(ERROR_TASK_PARSE)
             case _:
                 print(
                     f"[ERROR]: command {args.command} does not exist", file=sys.stderr

@@ -6,7 +6,10 @@ from pathlib import Path
 import mistune
 
 
-class RequiredElementsNotFoundError(ValueError):
+class TaskHeaderNotFoundError(ValueError):
+    pass
+
+class RequiredElementNotFoundError(ValueError):
     pass
 
 class MarkdownConvertValueError(Exception):
@@ -28,15 +31,15 @@ class Task:
 
 def parse_task_file(filename: Path) -> Task:
     def parse_header(heading_node: dict) -> str:
-        assert heading_node["type"] == "heading", (
-            f"could not find heading in expected header entry {value!s:s}"
-        )
-        assert heading_node["attrs"]["level"] == 1
-        assert len(heading_node["children"]) == 1, (
-            "unexpected number of children for heading element"
-        )
+        if heading_node["type"] != "heading":
+            raise TaskHeaderNotFoundError("missing")
+        if heading_node["attrs"]["level"] != 1:
+            raise TaskHeaderNotFoundError("not top level")
+        if len(heading_node["children"]) != 1:
+            raise TaskHeaderNotFoundError("Unexpected syntax error")
         text_node = heading_node["children"][0]
-        assert text_node["type"] == "text"
+        if text_node["type"] != "text":
+            raise TaskHeaderNotFoundError("unexpected type")
         return text_node["raw"]
 
     def next_item_is_blank(node: dict) -> bool:
@@ -62,7 +65,6 @@ def parse_task_file(filename: Path) -> Task:
         assert seperator, "could not find expected : in string"
         return name.strip(), value.strip()
 
-    task_id = filename.parent.stem
     with filename.open("r") as f:
         text = "".join(f.readlines())
 
@@ -82,12 +84,11 @@ def parse_task_file(filename: Path) -> Task:
         "DEPENDS": [],
     }
 
-    if len(children) < 4:
-        raise RequiredElementsNotFoundError("specification requires at least 4 elements: TAGS, PRIORITY, STATUS, DEPENDS")
-
+    found_required_keys = []
     while len(children) > 0:
         name, value = parse_list_item(children.pop(0))
         if name in required_keys:
+            found_required_keys.append(name)
             try:
                 out_data[name] = out_types[name](value)
             except ValueError:
@@ -97,13 +98,18 @@ def parse_task_file(filename: Path) -> Task:
         else:
             out_data[name] = value
 
+    for required_key in required_keys:
+        if required_key not in found_required_keys:
+            raise RequiredElementNotFoundError(required_key)
+
+    task_id = filename.parent.stem
     return Task(
         task_file=filename,
         task_id=task_id,
-        status=out_data.get("STATUS", "ERROR"),
-        priority=out_data.get("PRIORITY", -1),
-        tags=out_data.get("TAGS", []),
-        depends=out_data.get("DEPENDS", []),
+        status=out_data.get("STATUS"),
+        priority=out_data.get("PRIORITY"),
+        tags=out_data.get("TAGS"),
+        depends=out_data.get("DEPENDS"),
         header=out_data.get("HEADER"),
     )
 
@@ -121,7 +127,7 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
         depend_task_file = task_folder / depend_task_id / Path("TASK.md")
         try:
             depends.append(parse_task_file(depend_task_file))
-        except RequiredElementsNotFoundError:
+        except (RequiredElementNotFoundError, TaskHeaderNotFoundError) as e:
             depends.append(
                     Task(task_id=depend_task_id,
                          task_file=depend_task_file,
