@@ -170,16 +170,19 @@ def resolve_task_id(args: Namespace) -> str:
     return unique_ids.pop()
 
 
-def show_single_task(args: Namespace):
+def show_single_task(args: Namespace) -> None:
     """multiline information for a single task"""
     task_folder = require_task_folder(args)
     task_id = resolve_task_id(args)
     task_file = task_folder / task_id / Path("TASK.md")
     try:
-        task = get_task_from_file(task_file)
+        task = parse_task_file(task_file)
     except RequiredElementsNotFoundError:
         print(f"[ERROR]: {str(task_id):s}: could not parse due to missing required keys.", file=sys.stderr)
-        return
+        sys.exit(ERROR_TASK)
+    except MarkdownConvertValueError as e:
+        print(f"[ERROR]: {str(task_id):s}: {e}", file=sys.stderr)
+        sys.exit(ERROR_TASK)
 
     if not args.output_json:
         print(format_task_as_multiline(task, task_folder))
