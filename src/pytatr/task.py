@@ -5,6 +5,10 @@ from pathlib import Path
 import mistune
 
 
+class RequiredElementsNotFoundError(ValueError):
+    pass
+
+
 @dataclass
 class Task:
     """Represents a task"""
@@ -74,9 +78,9 @@ def parse_task_file(filename: Path) -> Task:
         "DEPENDS": [],
     }
 
-    assert len(children) >= 4, (
-        "specification requires at least 4 elements: TAGS, PRIORITY, STATUS, DEPENDS"
-    )
+    if len(children) < 4:
+        raise RequiredElementsNotFoundError("specification requires at least 4 elements: TAGS, PRIORITY, STATUS, DEPENDS")
+
     while len(children) > 0:
         name, value = parse_list_item(children.pop(0))
         if name in required_keys:
@@ -102,12 +106,28 @@ def parse_task_file(filename: Path) -> Task:
 
 def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
     depends = []
-    for depend_task_id in task.depends:
+    # requires full task ID
+    # TODO (CS) cleanup code for dummy dependency. see 20261030-834808
+    # we use a set to ignore duplicates
+    for depend_task_id in set(task.depends):
+        if depend_task_id == task.task_id:
+            print(f"[WARNING]: Task {task.task_id:s} depends on itself. Ignored.")
+            continue
+
         depend_task_file = task_folder / depend_task_id / Path("TASK.md")
-        if depend_task_file.exists():
+        try:
             depends.append(parse_task_file(depend_task_file))
-        else:
-            # TODO (CS) cleanup code for dummy dependency. see 20261030-834808
+        except RequiredElementsNotFoundError:
+            depends.append(
+                    Task(task_id=depend_task_id,
+                         task_file=depend_task_file,
+                         status="UNREADABLE",
+                         priority=1,
+                         header="ERROR",
+                         tags=[],
+                         depends=[])
+                    )
+        except FileNotFoundError:
             depends.append(
                     Task(task_id=depend_task_id,
                          task_file=depend_task_file,

@@ -18,6 +18,7 @@ from pytatr.task import (
     format_tasks_as_json,
     parse_task_file,
     Task,
+    RequiredElementsNotFoundError,
 )
 from pytatr.query import compile_query, query_matches_task, QueryError
 
@@ -130,7 +131,11 @@ def print_query_tasks(args: Namespace) -> None:
     tasks_to_print: list[Task] = []
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
-        task = get_task_from_file(task_file)
+        try:
+            task = get_task_from_file(task_file)
+        except RequiredElementsNotFoundError:
+            print(f"[ERROR]: {str(child):s}: could not parse due to missing required tags.")
+            continue
 
         if query_matches_task(query, task):
             format_header = task.header
