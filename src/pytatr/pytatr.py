@@ -130,7 +130,7 @@ def print_query_tasks(args: Namespace) -> None:
 
     output = tasks_to_print
     if args.sort_priority:
-        output = sorted(output, key=lambda item: item.priority)
+        output = sorted(output, key=lambda item: item.priority, reverse=True)
 
     if args.sort_reversed:
         output = reversed(output)
@@ -248,7 +248,7 @@ def parse_args() -> Namespace:
         dest="sort_priority",
         default=False,
         action="store_true",
-        help="use priority to sort tasks",
+        help="use priority to sort tasks. important first.",
     )
     ap_list.add_argument(
         "--json",
