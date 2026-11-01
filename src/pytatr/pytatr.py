@@ -194,7 +194,6 @@ def build_dependency_tree(task: Task, task_folder: Path, indent: int = 0) -> Non
 
     depends = build_task_dependencies(task, task_folder)
     for depend_task in depends:
-
         if depend_task.is_valid():
             build_dependency_tree(depend_task, task_folder, indent + 2)
         else:

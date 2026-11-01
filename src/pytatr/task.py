@@ -9,8 +9,10 @@ import mistune
 class TaskHeaderNotFoundError(ValueError):
     pass
 
+
 class RequiredElementNotFoundError(ValueError):
     pass
+
 
 class MarkdownConvertValueError(Exception):
     pass
@@ -96,7 +98,7 @@ def parse_task_file(filename: Path) -> Task:
                 out_data[name] = out_types[name](value)
             except ValueError:
                 raise MarkdownConvertValueError(
-                        f"field {name:s} conversion to {out_types[name]!s:s} failed to convert value {value:s} of type {type(value)!s:s}"
+                    f"field {name:s} conversion to {out_types[name]!s:s} failed to convert value {value:s} of type {type(value)!s:s}"
                 )
         else:
             out_data[name] = value
@@ -124,7 +126,9 @@ def get_task_from_file(task_file: Path, task_id: str) -> tuple[bool, Task | None
         print(f"[ERROR]: {task_id:s}: {e} header", file=sys.stderr)
         return False, None
     except RequiredElementNotFoundError as e:
-        print(f"[ERROR]: {task_id:s}: required element '{e}' not found", file=sys.stderr)
+        print(
+            f"[ERROR]: {task_id:s}: required element '{e}' not found", file=sys.stderr
+        )
         return False, None
     except MarkdownConvertValueError as e:
         print(f"[ERROR]: {task_id:s}: {e}", file=sys.stderr)
@@ -143,32 +147,43 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
     # we use a set to ignore duplicates
     for depend_task_id in set(task.depends):
         if depend_task_id == task.task_id:
-            print(f"[WARNING]: {task.task_id:s}: Task depends recursively on itself. Ignored.", file=sys.stderr)
+            print(
+                f"[WARNING]: {task.task_id:s}: Task depends recursively on itself. Ignored.",
+                file=sys.stderr,
+            )
             continue
 
         depend_task_file = task_folder / depend_task_id / Path("TASK.md")
         try:
             depends.append(parse_task_file(depend_task_file))
-        except (RequiredElementNotFoundError, TaskHeaderNotFoundError, MarkdownConvertValueError) as e:
+        except (
+            RequiredElementNotFoundError,
+            TaskHeaderNotFoundError,
+            MarkdownConvertValueError,
+        ) as e:
             depends.append(
-                    Task(task_id=depend_task_id,
-                         task_file=depend_task_file,
-                         status="UNREADABLE",
-                         priority=1,
-                         header="ERROR",
-                         tags=[],
-                         depends=[])
-                    )
+                Task(
+                    task_id=depend_task_id,
+                    task_file=depend_task_file,
+                    status="UNREADABLE",
+                    priority=1,
+                    header="ERROR",
+                    tags=[],
+                    depends=[],
+                )
+            )
         except FileNotFoundError:
             depends.append(
-                    Task(task_id=depend_task_id,
-                         task_file=depend_task_file,
-                         status="MISSING",
-                         priority=1,
-                         header="ERROR",
-                         tags=[],
-                         depends=[])
-                    )
+                Task(
+                    task_id=depend_task_id,
+                    task_file=depend_task_file,
+                    status="MISSING",
+                    priority=1,
+                    header="ERROR",
+                    tags=[],
+                    depends=[],
+                )
+            )
     return depends
 
 
@@ -208,15 +223,15 @@ def task_to_dict(task: Task, task_folder: Path) -> dict[str, str | int | list]:
     ]
     files = [child.name for child in (task_folder / task.task_id).iterdir()]
     return {
-            "id": task.task_id,
-            "title": task.header,
-            "status": task.status,
-            "priority": task.priority,
-            "tags": task.tags,
-            "depends": depends,
-            "files": files,
-            "path": str(task.task_file),
-        }
+        "id": task.task_id,
+        "title": task.header,
+        "status": task.status,
+        "priority": task.priority,
+        "tags": task.tags,
+        "depends": depends,
+        "files": files,
+        "path": str(task.task_file),
+    }
 
 
 def format_task_as_json(task: Task, task_folder: Path) -> str:
