@@ -16,11 +16,9 @@ from pytatr.task import (
     format_task_as_multiline,
     format_task_as_single_line,
     format_tasks_as_json,
+    get_task_from_file,
     parse_task_file,
     Task,
-    TaskHeaderNotFoundError,
-    RequiredElementNotFoundError,
-    MarkdownConvertValueError,
 )
 from pytatr.query import compile_query, query_matches_task, QueryError
 
@@ -49,11 +47,8 @@ CREATE_MARKDOWN = """# $title
 """
 
 
-
 class TasksFolderNotFoundError(Exception):
     pass
-
-
 
 
 def require_task_folder(args: Namespace) -> Path:
@@ -172,29 +167,9 @@ def resolve_task_id(args: Namespace) -> str:
         sys.exit(ERROR_TASK_DUPLICATE)
     return unique_ids.pop()
 
-def get_task_from_file(task_file: Path, task_id: str) -> tuple[bool, Task | None]:
-    try:
-        task = parse_task_file(task_file)
-    except TaskHeaderNotFoundError as e:
-        print(f"[ERROR]: {task_id:s}: {e} header", file=sys.stderr)
-        return False, None
-    except RequiredElementNotFoundError as e:
-        print(f"[ERROR]: {task_id:s}: required element '{e}' not found", file=sys.stderr)
-        return False, None
-    except MarkdownConvertValueError as e:
-        print(f"[ERROR]: {task_id:s}: {e}", file=sys.stderr)
-        return False, None
-    except FileNotFoundError:
-        print(f"[ERROR]: {task_id:s}: TASK.md file missing", file=sys.stderr)
-        return False, None
-    else:
-        return True, task
-
 
 def show_single_task(args: Namespace) -> bool:
     """multiline information for a single task"""
-    success = True
-
     task_folder = require_task_folder(args)
     task_id = resolve_task_id(args)
     task_file = task_folder / task_id / Path("TASK.md")
@@ -206,6 +181,35 @@ def show_single_task(args: Namespace) -> bool:
             print(format_task_as_multiline(task, task_folder))
         else:
             print(format_task_as_json(task, task_folder))
+
+    return success
+
+
+def build_dependency_tree(task: Task, task_folder: Path, indent: int = 0) -> None:
+    def print_indent_task(task: Task, indent: int = 0):
+        padding = " " * indent
+        print(f"{padding:s}{task.task_id} ({task.status:s})")
+
+    print_indent_task(task, indent)
+
+    depends = build_task_dependencies(task, task_folder)
+    for depend_task in depends:
+
+        if depend_task.is_valid():
+            build_dependency_tree(depend_task, task_folder, indent + 2)
+        else:
+            print_indent_task(depend_task, indent + 2)
+
+
+def show_dependency_tree(args: Namespace) -> bool:
+    """multiline information for a single task"""
+    task_folder = require_task_folder(args)
+    task_id = resolve_task_id(args)
+    task_file = task_folder / task_id / Path("TASK.md")
+
+    success, task = get_task_from_file(task_file, task_id)
+    if success:
+        build_dependency_tree(task, task_folder, 0)
 
     return success
 
@@ -289,11 +293,18 @@ def parse_args() -> Namespace:
         "-v", dest="verbose", default=False, action="store_true", help="verbose output."
     )
 
+    ap_deps = subparsers.add_parser("depends", help="lists a dependency tree")
+    ap_deps.add_argument(
+        "id",
+        default=None,
+        type=str,
+        help="id of the task. can be fuzzy",
+    )
+
     ap_show = subparsers.add_parser("show", help="show a note")
     ap_show.add_argument(
         "id",
         default=None,
-        # nargs="+",
         type=str,
         help="id of the task. can be fuzzy",
     )
@@ -336,6 +347,8 @@ def main(args: Namespace):
                 success = show_single_task(args)
                 if not success:
                     sys.exit(ERROR_TASK_PARSE)
+            case "depends":
+                success = show_dependency_tree(args)
             case _:
                 print(
                     f"[ERROR]: command {args.command} does not exist", file=sys.stderr

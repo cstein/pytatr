@@ -28,6 +28,9 @@ class Task:
     depends: list[str]
     header: str
 
+    def is_valid(self):
+        return self.status.upper() in ["OPEN", "CLOSED"]
+
 
 def parse_task_file(filename: Path) -> Task:
     def parse_header(heading_node: dict) -> str:
@@ -114,6 +117,25 @@ def parse_task_file(filename: Path) -> Task:
     )
 
 
+def get_task_from_file(task_file: Path, task_id: str) -> tuple[bool, Task | None]:
+    try:
+        task = parse_task_file(task_file)
+    except TaskHeaderNotFoundError as e:
+        print(f"[ERROR]: {task_id:s}: {e} header", file=sys.stderr)
+        return False, None
+    except RequiredElementNotFoundError as e:
+        print(f"[ERROR]: {task_id:s}: required element '{e}' not found", file=sys.stderr)
+        return False, None
+    except MarkdownConvertValueError as e:
+        print(f"[ERROR]: {task_id:s}: {e}", file=sys.stderr)
+        return False, None
+    except FileNotFoundError:
+        print(f"[ERROR]: {task_id:s}: TASK.md file missing", file=sys.stderr)
+        return False, None
+    else:
+        return True, task
+
+
 def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
     depends = []
     # requires full task ID
@@ -127,7 +149,7 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
         depend_task_file = task_folder / depend_task_id / Path("TASK.md")
         try:
             depends.append(parse_task_file(depend_task_file))
-        except (RequiredElementNotFoundError, TaskHeaderNotFoundError) as e:
+        except (RequiredElementNotFoundError, TaskHeaderNotFoundError, MarkdownConvertValueError) as e:
             depends.append(
                     Task(task_id=depend_task_id,
                          task_file=depend_task_file,
@@ -147,7 +169,6 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
                          tags=[],
                          depends=[])
                     )
-        # depends.append(f"{depend_task_id:s} ({depend_task.status.upper()})")
     return depends
 
 
