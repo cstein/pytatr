@@ -25,6 +25,8 @@ tatr supports the following commands:
 - `tatr init` which creates a folder `.tasks` in the current folder to store tasks
 - `tatr create <TITLE>` which creates a new task with a title. By default, a task is tagged as a bug with priority 100 (out of 100).
 - `tatr ls <QUERY>` which allows you to write a `<QUERY>` using a simple language (tql - the tatr query language). It is extremely simple and not fully implemented yet.
+- `tatr show <TASK ID>` which allows you to show task information in more detail for a specific task id. Can optionally dump as json with `--json` flag.
+- `tatr depends <TASK ID>` which allows you to show a dependency graph for a specific task id.
 
 ## Searching for Tasks
 The default `<QUERY>` is `open` and `tatr ls` will by default return the tasks that have the status `OPEN`.
