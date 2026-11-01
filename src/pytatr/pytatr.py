@@ -4,23 +4,19 @@ import random
 import sys
 import time
 from argparse import Action, ArgumentParser, Namespace
-from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from string import Template
 
-
+from pytatr.query import QueryError, compile_query, query_matches_task
 from pytatr.task import (
+    Task,
     build_task_dependencies,
     format_task_as_json,
     format_task_as_multiline,
     format_task_as_single_line,
     format_tasks_as_json,
     get_task_from_file,
-    parse_task_file,
-    Task,
 )
-from pytatr.query import compile_query, query_matches_task, QueryError
 
 CHARS = "0123456789"
 NUM_CHARS = 6
@@ -105,7 +101,7 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
         }
         f.write(s.substitute(mapping))
 
-    print(f"[INFO] Created task: {task_id:s}", file=sys.stderr)
+    print(f"[INFO]: Created task: {task_id:s}", file=sys.stderr)
     print(f"{task_id:s}", file=sys.stdout)
 
 
@@ -123,8 +119,7 @@ def print_query_tasks(args: Namespace) -> bool:
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
         successfully_loaded_task, task = get_task_from_file(task_file, str(child))
-        if successfully_loaded_task:
-            if query_matches_task(query, task):
+        if successfully_loaded_task and query_matches_task(query, task):
                 tasks_to_print.append(task)
         success = success & successfully_loaded_task
 
