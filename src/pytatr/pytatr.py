@@ -29,8 +29,9 @@ ERROR_QUERY = 2
 ERROR_TASK_NOT_FOUND = 3
 ERROR_TASK_DUPLICATE = 4
 ERROR_TASK_PARSE = 5
-ERROR_CREATE = 6
-ERROR_USAGE = 7
+ERROR_TASK_CYCLIC_DEPENDENCY = 6
+ERROR_CREATE = 7
+ERROR_USAGE = 8
 
 
 CREATE_MARKDOWN = """# $title
@@ -180,19 +181,36 @@ def show_single_task(args: Namespace) -> bool:
     return success
 
 
-def build_dependency_tree(task: Task, task_folder: Path, indent: int = 0) -> None:
+def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), indent: int = 0) -> bool:
     def print_indent_task(task: Task, indent: int = 0):
         padding = " " * indent
         print(f"{padding:s}{task.task_id} ({task.status:s})")
 
+    def build_cyclic_map(task_id: str, visited: tuple) -> str:
+        first = visited.index(task_id)
+        s = f"{visited[first]:s} -> "
+        items = visited[first+1:] + (task_id, )
+        s += " -> ".join(items)
+        return s
+
     print_indent_task(task, indent)
 
+    found_cyclic = False
     depends = build_task_dependencies(task, task_folder)
     for depend_task in depends:
+        if depend_task.task_id in visited:
+            print(f"[ERROR]: cycle {build_cyclic_map(depend_task.task_id, visited):s}", file=sys.stderr)
+            depend_task.status = "CYCLE"
+            found_cyclic = True
+
+        next_set = visited + (depend_task.task_id,)
+
         if depend_task.is_valid():
-            build_dependency_tree(depend_task, task_folder, indent + 2)
+            found_cyclic = build_dependency_tree(depend_task, task_folder, next_set, indent + 2)
         else:
             print_indent_task(depend_task, indent + 2)
+
+        return found_cyclic
 
 
 def show_dependency_tree(args: Namespace) -> bool:
@@ -203,7 +221,7 @@ def show_dependency_tree(args: Namespace) -> bool:
 
     success, task = get_task_from_file(task_file, task_id)
     if success:
-        build_dependency_tree(task, task_folder, 0)
+        success = build_dependency_tree(task, task_folder, (task.task_id,), 0)
 
     return success
 
@@ -342,7 +360,9 @@ def main(args: Namespace):
                 if not success:
                     sys.exit(ERROR_TASK_PARSE)
             case "depends":
-                success = show_dependency_tree(args)
+                found_cyclic = show_dependency_tree(args)
+                if found_cyclic:
+                    sys.exit(ERROR_TASK_CYCLIC_DEPENDENCY)
             case _:
                 print(
                     f"[ERROR]: command {args.command} does not exist", file=sys.stderr
