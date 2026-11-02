@@ -94,15 +94,15 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
     full_task_path.mkdir(parents=True)
     with (full_task_path / Path("TASK.md")).open("w") as f:
         s = Template(CREATE_MARKDOWN)
+        depends = [resolve_task_id(task_folder, i) for i in args.depends]
         mapping = {
             "title": args.title,
             "priority": str(args.priority),
             "tags": ", ".join(args.tags),
-            "depends": ", ".join([]),
+            "depends": ", ".join(depends),
         }
         f.write(s.substitute(mapping))
 
-    print(f"[INFO]: Created task: {task_id:s}", file=sys.stderr)
     print(f"{task_id:s}", file=sys.stdout)
 
 
@@ -140,24 +140,23 @@ def print_query_tasks(args: Namespace) -> bool:
     return success
 
 
-def resolve_task_id(args: Namespace) -> str:
-    task_folder = require_task_folder(args)
+def resolve_task_id(task_folder: Path, unresolved_id: str) -> str:
     found_ids = []
     for child in task_folder.iterdir():
         # full match first
-        if child.match(args.id):
+        if child.match(unresolved_id):
             found_ids.append(child.stem)
 
-        if child.match(f"*-{args.id}*"):
+        if child.match(f"*-{unresolved_id}*"):
             found_ids.append(child.stem)
 
     unique_ids = set(found_ids)
     if not unique_ids:
-        print(f"[ERROR]: query '{args.id}' found no matching tasks", file=sys.stderr)
+        print(f"[ERROR]: query '{unresolved_id}' found no matching tasks", file=sys.stderr)
         sys.exit(ERROR_TASK_NOT_FOUND)
     elif len(unique_ids) > 1:
         print(
-            f"[ERROR]: query '{args.id}' is ambiguous: {', '.join([i for i in unique_ids])}",
+            f"[ERROR]: query '{unresolved_ud}' is ambiguous: {', '.join([i for i in unique_ids])}",
             file=sys.stderr,
         )
         sys.exit(ERROR_TASK_DUPLICATE)
@@ -167,7 +166,7 @@ def resolve_task_id(args: Namespace) -> str:
 def show_single_task(args: Namespace) -> bool:
     """multiline information for a single task"""
     task_folder = require_task_folder(args)
-    task_id = resolve_task_id(args)
+    task_id = resolve_task_id(task_folder, args.id)
     task_file = task_folder / task_id / Path("TASK.md")
 
     success, task = get_task_from_file(task_file, task_id)
@@ -215,7 +214,7 @@ def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), in
 
 def show_dependency_tree(args: Namespace) -> bool:
     task_folder = require_task_folder(args)
-    task_id = resolve_task_id(args)
+    task_id = resolve_task_id(task_folder, args.id)
     task_file = task_folder / task_id / Path("TASK.md")
 
     success, task = get_task_from_file(task_file, task_id)
@@ -266,6 +265,13 @@ def parse_args() -> Namespace:
         help="Priority of task. Default is %(default)s.",
     )
     ap_create.add_argument(
+        "-d",
+        "--depends",
+        nargs="*",
+        metavar="TASKID",
+        help="Task IDs for direct dependencies. Must be existing tasks."
+    )
+    ap_create.add_argument(
         "--user-tag",
         type=str,
         help="user tag for tasks. use to avoid clashing with your team. No default.",
@@ -310,6 +316,7 @@ def parse_args() -> Namespace:
         "id",
         default=None,
         type=str,
+        metavar="TASKID",
         help="id of the task. can be fuzzy",
     )
 
@@ -318,6 +325,7 @@ def parse_args() -> Namespace:
         "id",
         default=None,
         type=str,
+        metavar="TASKID",
         help="id of the task. can be fuzzy",
     )
     ap_show.add_argument(
