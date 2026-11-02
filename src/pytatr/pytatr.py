@@ -214,16 +214,16 @@ def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), in
 
 
 def show_dependency_tree(args: Namespace) -> bool:
-    """multiline information for a single task"""
     task_folder = require_task_folder(args)
     task_id = resolve_task_id(args)
     task_file = task_folder / task_id / Path("TASK.md")
 
     success, task = get_task_from_file(task_file, task_id)
+    found_cyclic_dependency = False
     if success:
-        success = build_dependency_tree(task, task_folder, (task.task_id,), 0)
+        found_cyclic_dependency = build_dependency_tree(task, task_folder, (task.task_id,), 0)
 
-    return success
+    return found_cyclic_dependency
 
 
 def parse_args() -> Namespace:
