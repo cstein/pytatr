@@ -100,7 +100,6 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
             break
         task_id = create_task_id(args)
 
-
     try:
         file_content = read_body_content_from_file(args.body_file)
     except FileNotFoundError as e:
@@ -113,11 +112,11 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
     with (full_task_path / Path("TASK.md")).open("w") as f:
         s = Template(CREATE_MARKDOWN)
         mapping = {
-            "title": args.title,
-            "priority": " " + str(args.priority),
-            "tags": " " + ", ".join(args.tags),
-            "depends": " " + ", ".join(depends),
-            "body": file_content,
+            "title"     : args.title,
+            "priority"  : " " + str(args.priority),
+            "tags"      : " " + ", ".join(args.tags),
+            "depends"   : " " + ", ".join(depends),
+            "body"      : file_content,
         }
         f.write(s.substitute(mapping))
 
