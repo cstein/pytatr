@@ -107,10 +107,11 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
         print(f"[ERROR]: could not read file '{args.body_file!s:s}'")
         sys.exit(ERROR_FILE_NOT_FOUND)
 
+    depends = [resolve_task_id(task_folder, i) for i in args.depends]
+
     full_task_path.mkdir(parents=True)
     with (full_task_path / Path("TASK.md")).open("w") as f:
         s = Template(CREATE_MARKDOWN)
-        depends = [resolve_task_id(task_folder, i) for i in args.depends]
         mapping = {
             "title": args.title,
             "priority": " " + str(args.priority),
