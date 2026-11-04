@@ -32,15 +32,17 @@ ERROR_TASK_PARSE = 5
 ERROR_TASK_CYCLIC_DEPENDENCY = 6
 ERROR_CREATE = 7
 ERROR_USAGE = 8
+ERROR_FILE_NOT_FOUND = 9
 
 
 CREATE_MARKDOWN = """# $title
 
  - STATUS: OPEN
- - PRIORITY: $priority
- - TAGS: $tags
- - DEPENDS: $depends
+ - PRIORITY:$priority
+ - TAGS:$tags
+ - DEPENDS:$depends
 
+$body
 """
 
 
@@ -81,6 +83,15 @@ def create_task_id(args: Namespace) -> str:
     return f"{time_str:s}-{chars:s}{user_tag:s}"
 
 
+def read_body_content_from_file(filename: Path | None) -> str:
+    if filename is None:
+        return ""
+    if not filename.exists():
+        sys.exit(ERROR_FILE_NOT_FOUND)
+    with filename.open() as f:
+        return f.read()
+
+
 def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
     """Create a folder named from task id with empty contents"""
     task_folder = require_task_folder(args)
@@ -97,9 +108,10 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
         depends = [resolve_task_id(task_folder, i) for i in args.depends]
         mapping = {
             "title": args.title,
-            "priority": str(args.priority),
-            "tags": ", ".join(args.tags),
-            "depends": ", ".join(depends),
+            "priority": " " + str(args.priority),
+            "tags": " " + ", ".join(args.tags),
+            "depends": " " + ", ".join(depends),
+            "body": read_body_content_from_file(args.body_file)
         }
         f.write(s.substitute(mapping))
 
@@ -120,7 +132,7 @@ def print_query_tasks(args: Namespace) -> bool:
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
         successfully_loaded_task, task = get_task_from_file(task_file, str(child))
-        if successfully_loaded_task and query_matches_task(query, task):
+        if successfully_loaded_task and query_matches_task(query, task, task_folder):
                 tasks_to_print.append(task)
         success = success & successfully_loaded_task
 
@@ -267,14 +279,23 @@ def parse_args() -> Namespace:
     ap_create.add_argument(
         "-d",
         "--depends",
+        default=[],
         nargs="*",
         metavar="TASKID",
-        help="Task IDs for direct dependencies. Must be existing tasks."
+        help="Task IDs for direct dependencies. Must be existing tasks.",
     )
     ap_create.add_argument(
         "--user-tag",
         type=str,
         help="user tag for tasks. use to avoid clashing with your team. No default.",
+    )
+    ap_create.add_argument(
+        "--body-file",
+        type=Path,
+        metavar="FILE",
+        action=ToPathType,
+        default=None,
+        help="premade content of a task body.",
     )
 
     ap_list = subparsers.add_parser("ls", help="List tasks.")

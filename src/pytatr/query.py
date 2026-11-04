@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 import sys
 
-from pytatr.task import Task
+from pytatr.task import Task, build_task_dependencies
 
 
 class Op_Kind(Enum):
@@ -16,6 +17,8 @@ class Op_Kind(Enum):
     OP_STATUS_IS_OPEN = 6
     OP_STATUS_IS_CLOSED = 7
     OP_HAS_TAG = 8
+    OP_DEPENDENCIES_ARE_BLOCKERS = 9
+    OP_DEPENDENCIES_ARE_NOT_BLOCKERS = 10
 
     def __repr__(self) -> str:
         return self.name
@@ -101,6 +104,10 @@ def parse_primary(tokens: list[str]) -> list[Op]:
             return [Op(Op_Kind.OP_STATUS_IS_OPEN)]
         case "closed":
             return [Op(Op_Kind.OP_STATUS_IS_CLOSED)]
+        case "blocked":
+            return [Op(Op_Kind.OP_DEPENDENCIES_ARE_BLOCKERS)]
+        case "unblocked":
+            return [Op(Op_Kind.OP_DEPENDENCIES_ARE_NOT_BLOCKERS)]
         case _:
             raise QueryError(f"'{token}' is not a valid keyword.")
 
@@ -120,8 +127,10 @@ def compile_query(tokens: list[str]) -> list[Op]:
 def query_matches_task(
     query: list[Op],
     task: Task,
+    task_folder: Path,
 ) -> bool:
     """Matches a compiled query with a specific task"""
+
     stack = []
     for op in query:
         match op.kind:
@@ -138,6 +147,10 @@ def query_matches_task(
                 stack.append(task.status.upper() == "CLOSED")
             case Op_Kind.OP_HAS_TAG:
                 stack.append(op.tag in task.tags)
+            case Op_Kind.OP_DEPENDENCIES_ARE_BLOCKERS:
+                stack.append("OPEN" in [t.status.upper() for t in build_task_dependencies(task, task_folder)])
+            case Op_Kind.OP_DEPENDENCIES_ARE_NOT_BLOCKERS:
+                stack.append("OPEN" not in [t.status.upper() for t in build_task_dependencies(task, task_folder)])
             case Op_Kind.OP_AND:
                 a = stack.pop()
                 b = stack.pop()
