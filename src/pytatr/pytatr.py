@@ -86,8 +86,6 @@ def create_task_id(args: Namespace) -> str:
 def read_body_content_from_file(filename: Path | None) -> str:
     if filename is None:
         return ""
-    if not filename.exists():
-        sys.exit(ERROR_FILE_NOT_FOUND)
     with filename.open() as f:
         return f.read()
 
@@ -102,6 +100,13 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
             break
         task_id = create_task_id(args)
 
+
+    try:
+        file_content = read_body_content_from_file(args.body_file)
+    except FileNotFoundError as e:
+        print(f"[ERROR]: could not read file '{args.body_file!s:s}'")
+        sys.exit(ERROR_FILE_NOT_FOUND)
+
     full_task_path.mkdir(parents=True)
     with (full_task_path / Path("TASK.md")).open("w") as f:
         s = Template(CREATE_MARKDOWN)
@@ -111,7 +116,7 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
             "priority": " " + str(args.priority),
             "tags": " " + ", ".join(args.tags),
             "depends": " " + ", ".join(depends),
-            "body": read_body_content_from_file(args.body_file)
+            "body": file_content,
         }
         f.write(s.substitute(mapping))
 
