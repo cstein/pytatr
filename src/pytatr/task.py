@@ -70,6 +70,12 @@ def parse_task_file(filename: Path) -> Task:
         assert seperator, "could not find expected : in string"
         return name.strip(), value.strip()
 
+    def check_required_field_consistency(data: dict[str, list[str]], key: str, task_id: str) -> None:
+        data_without_empty_items = [item for item in data[key] if len(item) > 0]
+        if data[key] != data_without_empty_items:
+            print(f"[WARNING]: {task_id:s}: field {key:s} has empty items which are ignored", file=sys.stderr)
+        data[key] = data_without_empty_items
+
     with filename.open("r") as f:
         text = "".join(f.readlines())
 
@@ -108,6 +114,9 @@ def parse_task_file(filename: Path) -> Task:
             raise RequiredElementNotFoundError(required_key)
 
     task_id = filename.parent.stem
+    check_required_field_consistency(out_data, "TAGS",    task_id)
+    check_required_field_consistency(out_data, "DEPENDS", task_id)
+
     return Task(
         task_file=filename,
         task_id=task_id,
