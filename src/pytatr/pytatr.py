@@ -215,7 +215,7 @@ def show_matching_ids(args: Namespace) -> None:
         sys.exit(ERROR_TASK_NOT_FOUND)
     else:
         if not args.output_json:
-            print(" ".join([s for s in task_ids]))
+            print("\n".join([s for s in task_ids]))
         else:
             print(json.dumps([{"id": s} for s in task_ids]))
 
