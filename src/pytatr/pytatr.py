@@ -164,6 +164,7 @@ def resolve_task_id(task_folder: Path, unresolved_id: str) -> str:
         if child.match(unresolved_id):
             found_ids.append(child.stem)
 
+        # semi-fuzzy match on the random part only
         if child.match(f"*-{unresolved_id}*"):
             found_ids.append(child.stem)
 
