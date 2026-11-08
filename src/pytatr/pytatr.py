@@ -7,6 +7,8 @@ from argparse import Action, ArgumentParser, Namespace
 from pathlib import Path
 from string import Template
 
+import json
+
 from pytatr.query import QueryError, compile_query, query_matches_task
 from pytatr.task import (
     Task,
@@ -106,7 +108,7 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
         print(f"[ERROR]: could not read file '{args.body_file!s:s}'")
         sys.exit(ERROR_FILE_NOT_FOUND)
 
-    depends = [resolve_task_id(task_folder, i) for i in args.depends]
+    depends = [resolve_unique_task_id(task_folder, i) for i in args.depends]
 
     full_task_path.mkdir(parents=True)
     with (full_task_path / Path("TASK.md")).open("w") as f:
@@ -157,7 +159,8 @@ def print_query_tasks(args: Namespace) -> bool:
     return success
 
 
-def resolve_task_id(task_folder: Path, unresolved_id: str) -> str:
+def resolve_task_ids(task_folder: Path, unresolved_id: str) -> set[None | str]:
+    """Resolves task ids based on a (potentially) unresolved id"""
     found_ids = []
     for child in task_folder.iterdir():
         # full match first
@@ -168,7 +171,12 @@ def resolve_task_id(task_folder: Path, unresolved_id: str) -> str:
         if child.match(f"*-{unresolved_id}*"):
             found_ids.append(child.stem)
 
-    unique_ids = set(found_ids)
+    return set(found_ids)
+
+
+def resolve_unique_task_id(task_folder: Path, unresolved_id: str) -> str:
+    """Resolves a unique task id based on a (potentially) unresolved id"""
+    unique_ids = resolve_task_ids(task_folder, unresolved_id)
     if not unique_ids:
         print(f"[ERROR]: query '{unresolved_id}' found no matching tasks", file=sys.stderr)
         sys.exit(ERROR_TASK_NOT_FOUND)
@@ -184,7 +192,7 @@ def resolve_task_id(task_folder: Path, unresolved_id: str) -> str:
 def show_single_task(args: Namespace) -> bool:
     """multiline information for a single task"""
     task_folder = require_task_folder(args)
-    task_id = resolve_task_id(task_folder, args.id)
+    task_id = resolve_unique_task_id(task_folder, args.id)
     task_file = task_folder / task_id / Path("TASK.md")
 
     success, task = get_task_from_file(task_file, task_id)
@@ -196,6 +204,20 @@ def show_single_task(args: Namespace) -> bool:
             print(format_task_as_json(task, task_folder))
 
     return success
+
+
+def show_matching_ids(args: Namespace) -> None:
+    task_folder = require_task_folder(args)
+    task_ids = resolve_task_ids(task_folder, args.id)
+
+    if not task_ids:
+        print(f"[ERROR]: query '{args.id}' found no matching tasks", file=sys.stderr)
+        sys.exit(ERROR_TASK_NOT_FOUND)
+    else:
+        if not args.output_json:
+            print(" ".join([s for s in task_ids]))
+        else:
+            print(json.dumps([{"id": s} for s in task_ids]))
 
 
 def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), indent: int = 0) -> bool:
@@ -232,7 +254,7 @@ def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), in
 
 def show_dependency_tree(args: Namespace) -> bool:
     task_folder = require_task_folder(args)
-    task_id = resolve_task_id(task_folder, args.id)
+    task_id = resolve_unique_task_id(task_folder, args.id)
     task_file = task_folder / task_id / Path("TASK.md")
 
     success, task = get_task_from_file(task_file, task_id)
@@ -363,6 +385,22 @@ def parse_args() -> Namespace:
         help="output json instead of plain text",
     )
 
+    ap_id = subparsers.add_parser("id", help="list note ids matching input")
+    ap_id.add_argument(
+        "id",
+        default=None,
+        type=str,
+        metavar="TASKID",
+        help="id of the task(s). can match random part of task id",
+    )
+    ap_id.add_argument(
+        "--json",
+        dest="output_json",
+        action="store_true",
+        default=False,
+        help="output json instead of plain text",
+    )
+
     return ap.parse_args()
 
 
@@ -394,6 +432,8 @@ def main(args: Namespace):
                 success = show_single_task(args)
                 if not success:
                     sys.exit(ERROR_TASK_PARSE)
+            case "id":
+                show_matching_ids(args)
             case "depends":
                 found_cyclic = show_dependency_tree(args)
                 if found_cyclic:

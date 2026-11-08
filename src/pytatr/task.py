@@ -41,7 +41,7 @@ def parse_task_file(filename: Path) -> Task:
         if heading_node["attrs"]["level"] != 1:
             raise TaskHeaderNotFoundError("not top level")
         if len(heading_node["children"]) != 1:
-            raise TaskHeaderNotFoundError("Unexpected syntax error")
+            raise TaskHeaderNotFoundError("HTML tags not allowed")
         text_node = heading_node["children"][0]
         if text_node["type"] != "text":
             raise TaskHeaderNotFoundError("unexpected type")
