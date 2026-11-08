@@ -9,7 +9,7 @@ from string import Template
 
 import json
 
-from pytatr.query import QueryError, compile_query, query_matches_task
+from pytatr.query import QueryError, QuerySyntaxError, compile_query, query_matches_task
 from pytatr.task import (
     Task,
     build_task_dependencies,
@@ -28,6 +28,7 @@ MAX_HEADER_PRINT_LEN = 100
 ERROR_OK = 0
 ERROR_FOLDER = 1
 ERROR_QUERY = 2
+ERROR_QUERY_SYNTAX = 10
 ERROR_TASK_NOT_FOUND = 3
 ERROR_TASK_DUPLICATE = 4
 ERROR_TASK_PARSE = 5
@@ -419,6 +420,9 @@ def main(args: Namespace):
                 except QueryError as e:
                     print(f"[ERROR]: {e}", file=sys.stderr)
                     sys.exit(ERROR_QUERY)
+                except QuerySyntaxError as e:
+                    print(f"[SYNTAX ERROR]: {e}", file=sys.stderr)
+                    sys.exit(ERROR_QUERY_SYNTAX)
                 if not success:
                     sys.exit(ERROR_TASK_PARSE)
             case "create":

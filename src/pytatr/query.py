@@ -43,7 +43,10 @@ class Op:
 class QueryError(Exception):
     pass
 
-class QuerySyntaxError(QueryError):
+class QueryKeywordError(Exception):
+    pass
+
+class QuerySyntaxError(Exception):
     pass
 
 
@@ -97,12 +100,12 @@ def parse_primary(tokens: list[str]) -> list[Op]:
     token = chop(tokens)
     if token[0] == ":":
         if not token[1:]:
-            raise QueryError("syntax error. got ':' but expected :<TAG>")
+            raise QuerySyntaxError("got ':' but expected :<TAG>")
         return [Op(Op_Kind.OP_HAS_TAG, tag=token[1:])]
 
     if token[0] == "@":
         if not token[1:]:
-            raise QuerySyntaxError("syntax error. got '@' but expted :<TASKID>")
+            raise QuerySyntaxError("got '@' but expted :<TASKID>")
         return [Op(Op_Kind.OP_HAS_TASKID, task_id=token[1:])]
 
     match token:
@@ -119,7 +122,7 @@ def parse_primary(tokens: list[str]) -> list[Op]:
         case "unblocked":
             return [Op(Op_Kind.OP_DEPENDENCIES_ARE_NOT_BLOCKERS)]
         case _:
-            raise QueryError(f"'{token}' is not a valid keyword.")
+            raise QueryKeywordError(f"'{token}' is not a valid keyword.")
 
 
 def compile_query(tokens: list[str]) -> list[Op]:
