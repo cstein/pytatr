@@ -19,6 +19,7 @@ class Op_Kind(Enum):
     OP_HAS_TAG = 8
     OP_DEPENDENCIES_ARE_BLOCKERS = 9
     OP_DEPENDENCIES_ARE_NOT_BLOCKERS = 10
+    OP_HAS_TASKID = 11
 
     def __repr__(self) -> str:
         return self.name
@@ -33,12 +34,16 @@ class Op:
 
     kind: Op_Kind
     tag: str | None = None
+    task_id: str | None = None
 
     def __repr__(self):
         return f"Op({self.kind!r:s})"
 
 
 class QueryError(Exception):
+    pass
+
+class QuerySyntaxError(QueryError):
     pass
 
 
@@ -94,6 +99,11 @@ def parse_primary(tokens: list[str]) -> list[Op]:
         if not token[1:]:
             raise QueryError("syntax error. got ':' but expected :<TAG>")
         return [Op(Op_Kind.OP_HAS_TAG, tag=token[1:])]
+
+    if token[0] == "@":
+        if not token[1:]:
+            raise QuerySyntaxError("syntax error. got '@' but expted :<TASKID>")
+        return [Op(Op_Kind.OP_HAS_TASKID, task_id=token[1:])]
 
     match token:
         case "any":
@@ -151,6 +161,8 @@ def query_matches_task(
                 stack.append("OPEN" in [t.status.upper() for t in build_task_dependencies(task, task_folder)])
             case Op_Kind.OP_DEPENDENCIES_ARE_NOT_BLOCKERS:
                 stack.append("OPEN" not in [t.status.upper() for t in build_task_dependencies(task, task_folder)])
+            case Op_Kind.OP_HAS_TASKID:
+                stack.append(op.task_id == task.task_id)
             case Op_Kind.OP_AND:
                 a = stack.pop()
                 b = stack.pop()
