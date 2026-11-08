@@ -236,6 +236,7 @@ def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), in
 
     found_cyclic = False
     depends = build_task_dependencies(task, task_folder)
+    # print(f"[DEBUG]: {task.task_id:s}:", depends)
     for depend_task in depends:
         if depend_task.task_id in visited:
             print(f"[ERROR]: cycle {build_cyclic_map(depend_task.task_id, visited):s}", file=sys.stderr)
@@ -249,7 +250,7 @@ def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), in
         else:
             print_indent_task(depend_task, indent + 2)
 
-        return found_cyclic
+    return found_cyclic
 
 
 def show_dependency_tree(args: Namespace) -> bool:
