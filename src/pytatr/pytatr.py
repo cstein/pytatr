@@ -385,7 +385,7 @@ def parse_args() -> Namespace:
         help="output json instead of plain text",
     )
 
-    ap_id = subparsers.add_parser("id", help="list note ids matching input")
+    ap_id = subparsers.add_parser("id", help="resolves task ids (or parts thereof) into valid ids.")
     ap_id.add_argument(
         "id",
         default=None,
