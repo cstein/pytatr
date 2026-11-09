@@ -141,7 +141,7 @@ def print_query_tasks(args: Namespace) -> bool:
         task_file = child / Path("TASK.md")
         successfully_loaded_task, task = get_task_from_file(task_file, str(child))
         if successfully_loaded_task and query_matches_task(query, task, task_folder):
-                tasks_to_print.append(task)
+            tasks_to_print.append(task)
         success = success & successfully_loaded_task
 
     output = tasks_to_print

@@ -37,14 +37,14 @@ class Task:
 def parse_task_file(filename: Path) -> Task:
     def parse_header(heading_node: dict) -> str:
         if heading_node["type"] != "heading":
-            raise TaskHeaderNotFoundError("missing")
+            raise TaskHeaderNotFoundError("missing header")
         if heading_node["attrs"]["level"] != 1:
-            raise TaskHeaderNotFoundError("not top level")
+            raise TaskHeaderNotFoundError("header is not top level")
         if len(heading_node["children"]) != 1:
-            raise TaskHeaderNotFoundError("HTML tags not allowed")
+            raise TaskHeaderNotFoundError("header does not support HTML tags")
         text_node = heading_node["children"][0]
         if text_node["type"] != "text":
-            raise TaskHeaderNotFoundError("unexpected type")
+            raise TaskHeaderNotFoundError("header could not parsed as text")
         return text_node["raw"]
 
     def next_item_is_blank(node: dict) -> bool:
@@ -132,7 +132,7 @@ def get_task_from_file(task_file: Path, task_id: str) -> tuple[bool, Task | None
     try:
         task = parse_task_file(task_file)
     except TaskHeaderNotFoundError as e:
-        print(f"[ERROR]: {task_id:s}: {e} header", file=sys.stderr)
+        print(f"[ERROR]: {task_id:s}: while parsing the task file header the following error occured: {e}", file=sys.stderr)
         return False, None
     except RequiredElementNotFoundError as e:
         print(
