@@ -115,6 +115,10 @@ def parse_task_file(filename: Path) -> Task:
             found_required_keys.append(name)
             try:
                 out_data[name] = out_types[name](value)
+            except KeyError:
+                raise MarkdownConvertValueError(
+                    f"field {name:s} has wrong value of '{value:s}' which is not OPEN or CLOSED"
+                )
             except ValueError:
                 raise MarkdownConvertValueError(
                     f"field {name:s} conversion to {out_types[name]!s:s} failed to convert value {value:s} of type {type(value)!s:s}"
