@@ -1,10 +1,22 @@
 import json
 import sys
 from dataclasses import dataclass, asdict
+from enum import Enum
 from pathlib import Path
 
 import mistune
 
+
+class TaskStatus(Enum):
+    CLOSED = 0
+    OPEN = 1
+    INVALID = 2
+    MISSING = 3
+    CYCLIC = 4
+
+    @classmethod
+    def from_string(cls, value):
+        return cls[value]
 
 class TaskHeaderNotFoundError(ValueError):
     pass
@@ -24,14 +36,15 @@ class Task:
 
     task_file: Path
     task_id: str
-    status: str
+    status: TaskStatus
     priority: int
     tags: list[str]
     depends: list[str]
     header: str
+    body: str = ""
 
     def is_valid(self):
-        return self.status.upper() in ["OPEN", "CLOSED"]
+        return self.status in [TaskStatus.OPEN, TaskStatus.CLOSED]
 
 
 def parse_task_file(filename: Path) -> Task:
@@ -86,12 +99,12 @@ def parse_task_file(filename: Path) -> Task:
     children = parse_list(md.pop(0))
 
     required_keys = ["STATUS", "PRIORITY", "TAGS", "DEPENDS"]
-    out_types = {"STATUS": str, "PRIORITY": int, "TAGS": to_list, "DEPENDS": to_list}
+    out_types = {"STATUS": TaskStatus.from_string, "PRIORITY": int, "TAGS": to_list, "DEPENDS": to_list}
     out_data = {
         "HEADER": header,
         "TAGS": [],
         "PRIORITY": 100,
-        "STATUS": "",
+        "STATUS": TaskStatus.INVALID,
         "DEPENDS": [],
     }
 
@@ -120,7 +133,7 @@ def parse_task_file(filename: Path) -> Task:
     return Task(
         task_file=filename,
         task_id=task_id,
-        status=out_data.get("STATUS"),
+        status=out_data.get("STATUS", TaskStatus.INVALID),
         priority=out_data.get("PRIORITY"),
         tags=out_data.get("TAGS"),
         depends=out_data.get("DEPENDS"),
@@ -174,7 +187,7 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
                 Task(
                     task_id=depend_task_id,
                     task_file=depend_task_file,
-                    status="UNREADABLE",
+                    status=TaskStatus.INVALID,
                     priority=1,
                     header="ERROR",
                     tags=[],
@@ -186,7 +199,7 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
                 Task(
                     task_id=depend_task_id,
                     task_file=depend_task_file,
-                    status="MISSING",
+                    status=TaskStatus.MISSING,
                     priority=1,
                     header="ERROR",
                     tags=[],
@@ -197,20 +210,20 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
 
 
 def format_task_as_single_line(task: Task) -> str:
-    return f"{task.task_file!s:s}:1: {task.status:>6s} [PRIORITY: {task.priority:>3d}] [{','.join(task.tags)}] {task.header:s}"
+    return f"{task.task_file!s:s}:1: {task.status.name:>6s} [PRIORITY: {task.priority:>3d}] [{','.join(task.tags)}] {task.header:s}"
 
 
 def format_task_as_multiline(task: Task, task_folder: Path) -> str:
     format_str = "{0:<12s}{1:s}\n"
     s = format_str.format("id:", task.task_id)
     s += format_str.format("title:", task.header)
-    s += format_str.format("status:", task.status)
+    s += format_str.format("status:", task.status.name)
     s += format_str.format("priority:", str(task.priority))
     s += format_str.format("tags:", ", ".join(task.tags))
 
     # we need the status of any dependencies
     depends = [
-        f"{depend_task.task_id:s} ({depend_task.status.upper()})"
+        f"{depend_task.task_id:s} ({depend_task.status.name})"
         for depend_task in build_task_dependencies(task, task_folder)
     ]
     s += format_str.format("depends:", ", ".join(depends))
@@ -226,7 +239,7 @@ def task_to_dict(task: Task, task_folder: Path) -> dict[str, str | int | list]:
         {
             "id": depend_task.task_id,
             "path": str(depend_task.task_file),
-            "status": depend_task.status,
+            "status": depend_task.status.name,
         }
         for depend_task in build_task_dependencies(task, task_folder)
     ]
@@ -234,7 +247,7 @@ def task_to_dict(task: Task, task_folder: Path) -> dict[str, str | int | list]:
     return {
         "id": task.task_id,
         "title": task.header,
-        "status": task.status,
+        "status": task.status.name,
         "priority": task.priority,
         "tags": task.tags,
         "depends": depends,

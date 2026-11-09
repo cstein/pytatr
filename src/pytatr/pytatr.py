@@ -224,7 +224,7 @@ def show_matching_ids(args: Namespace) -> None:
 def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), indent: int = 0) -> bool:
     def print_indent_task(task: Task, indent: int = 0):
         padding = " " * indent
-        print(f"{padding:s}{task.task_id} ({task.status:s})")
+        print(f"{padding:s}{task.task_id} ({task.status.name:s})")
 
     def build_cyclic_map(task_id: str, visited: tuple) -> str:
         first = visited.index(task_id)
@@ -241,7 +241,7 @@ def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), in
     for depend_task in depends:
         if depend_task.task_id in visited:
             print(f"[ERROR]: cycle {build_cyclic_map(depend_task.task_id, visited):s}", file=sys.stderr)
-            depend_task.status = "CYCLE"
+            depend_task.status = TaskStatus.CYCLIC
             found_cyclic = True
 
         next_set = visited + (depend_task.task_id,)
