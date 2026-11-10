@@ -214,7 +214,7 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
 
 
 def format_task_as_single_line(task: Task) -> str:
-    return f"{task.task_file!s:s}:1: {task.status.name:>6s} [PRIORITY: {task.priority:>3d}] [{','.join(task.tags)}] {task.header:s}"
+    return f"{task.task_file!s:s} {task.status.name:>6s} [PRIORITY: {task.priority:>3d}] [{','.join(task.tags)}] {task.header:s}"
 
 
 def format_task_as_multiline(task: Task, task_folder: Path) -> str:
