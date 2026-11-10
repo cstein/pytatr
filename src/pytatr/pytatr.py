@@ -183,7 +183,7 @@ def resolve_unique_task_id(task_folder: Path, unresolved_id: str) -> str:
         sys.exit(ERROR_TASK_NOT_FOUND)
     elif len(unique_ids) > 1:
         print(
-            f"[ERROR]: query '{unresolved_ud}' is ambiguous: {', '.join([i for i in unique_ids])}",
+            f"[ERROR]: query '{unresolved_id}' is ambiguous: {', '.join([i for i in unique_ids])}",
             file=sys.stderr,
         )
         sys.exit(ERROR_TASK_DUPLICATE)
