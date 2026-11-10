@@ -157,7 +157,7 @@ def parse_task_file(filename: Path) -> Task:
     )
 
 
-def get_task_from_file(task_file: Path, task_id: str) -> tuple[bool, Task | None]:
+def read_task_from_file(task_file: Path, task_id: str) -> tuple[bool, Task | None]:
     try:
         task = parse_task_file(task_file)
     except TaskHeaderNotFoundError as e:

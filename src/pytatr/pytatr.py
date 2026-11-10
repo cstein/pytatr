@@ -17,7 +17,7 @@ from pytatr.task import (
     format_task_as_multiline,
     format_task_as_single_line,
     format_tasks_as_json,
-    get_task_from_file,
+    read_task_from_file,
     write_task_to_file,
 )
 
@@ -128,7 +128,7 @@ def print_query_tasks(args: Namespace) -> bool:
     tasks_to_print: list[Task] = []
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
-        successfully_loaded_task, task = get_task_from_file(task_file, str(child))
+        successfully_loaded_task, task = read_task_from_file(task_file, str(child))
         if successfully_loaded_task and query_matches_task(query, task, task_folder):
             tasks_to_print.append(task)
         success = success & successfully_loaded_task
@@ -184,8 +184,7 @@ def show_single_task(args: Namespace) -> bool:
     task_folder = require_task_folder(args)
     task_id = resolve_unique_task_id(task_folder, args.id)
     task_file = task_folder / task_id / Path("TASK.md")
-
-    success, task = get_task_from_file(task_file, task_id)
+    success, task = read_task_from_file(task_file, task_id)
 
     if success:
         if not args.output_json:
@@ -246,7 +245,8 @@ def update_task_from_command_line(args: Namespace) -> bool:
     task_folder = require_task_folder(args)
     task_id = resolve_unique_task_id(task_folder, args.id)
     task_file = task_folder / task_id / Path("TASK.md")
-    read_success, task = get_task_from_file(task_file, task_id)
+    success, task = read_task_from_file(task_file, task_id)
+
     if hasattr(args, "status"):
         task.status = TaskStatus[args.status.upper()]
 
@@ -259,8 +259,8 @@ def show_dependency_tree(args: Namespace) -> bool:
     task_folder = require_task_folder(args)
     task_id = resolve_unique_task_id(task_folder, args.id)
     task_file = task_folder / task_id / Path("TASK.md")
+    success, task = read_task_from_file(task_file, task_id)
 
-    success, task = get_task_from_file(task_file, task_id)
     found_cyclic_dependency = False
     if success:
         found_cyclic_dependency = build_dependency_tree(task, task_folder, (task.task_id,), 0)
