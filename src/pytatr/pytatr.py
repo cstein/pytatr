@@ -254,12 +254,13 @@ def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), in
     return found_cyclic
 
 
-def set_and_update_task(args: Namespace) -> bool:
+def update_task_from_command_line(args: Namespace) -> bool:
     task_folder = require_task_folder(args)
     task_id = resolve_unique_task_id(task_folder, args.id)
     task_file = task_folder / task_id / Path("TASK.md")
     read_success, task = get_task_from_file(task_file, task_id)
-    task.status = TaskStatus[args.status.upper()]
+    if hasattr(args, "status"):
+        task.status = TaskStatus[args.status.upper()]
     with open(task_file, "w") as f:
         s = Template(CREATE_MARKDOWN)
         mapping = {
@@ -425,22 +426,20 @@ def parse_args() -> Namespace:
     )
 
     ap_set = subparsers.add_parser("set", help="set various fields from the command line")
-    ap_set_subparsers = ap_set.add_subparsers(help="fields to set", dest="field", required=False)
+    ap_set_subparsers = ap_set.add_subparsers(help="fields to set", dest="field", required=True)
     ap_set_status = ap_set_subparsers.add_parser("status", help="set the status of a task")
     ap_set_status.add_argument(
         "status",
-        default=None,
         choices=("open", "closed"),
         type=str,
         metavar="STATUS",
-        help="should be one of: [%(choices)s]. no default.",
+        help="should be one of: [%(choices)s]",
     )
     ap_set_status.add_argument(
         "id",
-        default=None,
         type=str,
         metavar="TASKID",
-        help="id of the task. must match exactly one task.",
+        help="id of the task. must match exactly one task",
     )
 
     return ap.parse_args()
@@ -485,7 +484,7 @@ def main(args: Namespace):
                     sys.exit(ERROR_TASK_CYCLIC_DEPENDENCY)
             case "set":
                 print("[INFO]:", args)
-                success = set_and_update_task(args)
+                success = update_task_from_command_line(args)
             case _:
                 print(
                     f"[ERROR]: command {args.command} does not exist", file=sys.stderr
