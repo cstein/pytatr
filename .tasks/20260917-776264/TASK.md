@@ -1,8 +1,9 @@
 # functionality to close a task through tatr close ID
 
- - STATUS: OPEN
+ - STATUS: CLOSED
  - PRIORITY: 10
- - TAGS: feature, wontfix
+ - TAGS: feature, deprecated
  - DEPENDS:
+ - RELATED: 20261110-856609
 
-This will most likely never be implemented.
+This was actually implemeted in 20261110-856609.
