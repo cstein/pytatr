@@ -5,7 +5,6 @@ import sys
 import time
 from argparse import Action, ArgumentParser, Namespace
 from pathlib import Path
-from string import Template
 
 import json
 
@@ -19,6 +18,7 @@ from pytatr.task import (
     format_task_as_single_line,
     format_tasks_as_json,
     get_task_from_file,
+    write_task_to_file,
 )
 
 CHARS = "0123456789"
@@ -37,17 +37,6 @@ ERROR_TASK_CYCLIC_DEPENDENCY = 6
 ERROR_CREATE = 7
 ERROR_USAGE = 8
 ERROR_FILE_NOT_FOUND = 9
-
-
-CREATE_MARKDOWN = """# $title
-
- - STATUS: $status
- - PRIORITY:$priority
- - TAGS:$tags
- - DEPENDS:$depends
-
-$body
-"""
 
 
 class TasksFolderNotFoundError(Exception):
@@ -113,17 +102,17 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
     depends = [resolve_unique_task_id(task_folder, i) for i in args.depends]
 
     full_task_path.mkdir(parents=True)
-    with (full_task_path / Path("TASK.md")).open("w") as f:
-        s = Template(CREATE_MARKDOWN)
-        mapping = {
-            "title"     : args.title,
-            "status"    : TaskStatus.OPEN.name,
-            "priority"  : " " + str(args.priority),
-            "tags"      : " " + ", ".join(args.tags),
-            "depends"   : " " + ", ".join(depends),
-            "body"      : file_content,
-        }
-        f.write(s.substitute(mapping))
+    task = Task(
+        task_file = full_task_path / Path("TASK.md"),
+        task_id   = task_id,
+        status    = TaskStatus.OPEN.name,
+        priority  = args.priority,
+        tags      = args.tags,
+        depends   = depends,
+        header    = args.title,
+        body      = file_content,
+    )
+    write_task_to_file(task)
 
     print(f"{task_id:s}", file=sys.stdout)
 
@@ -237,7 +226,6 @@ def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), in
 
     found_cyclic = False
     depends = build_task_dependencies(task, task_folder)
-    # print(f"[DEBUG]: {task.task_id:s}:", depends)
     for depend_task in depends:
         if depend_task.task_id in visited:
             print(f"[ERROR]: cycle {build_cyclic_map(depend_task.task_id, visited):s}", file=sys.stderr)
@@ -261,17 +249,8 @@ def update_task_from_command_line(args: Namespace) -> bool:
     read_success, task = get_task_from_file(task_file, task_id)
     if hasattr(args, "status"):
         task.status = TaskStatus[args.status.upper()]
-    with open(task_file, "w") as f:
-        s = Template(CREATE_MARKDOWN)
-        mapping = {
-            "title"     : task.header,
-            "status"    : task.status.name,
-            "priority"  : " " + str(task.priority),
-            "tags"      : " " + ", ".join(task.tags),
-            "depends"   : " " + ", ".join(task.depends),
-            "body"      : task.body,
-        }
-        f.write(s.substitute(mapping))
+
+    write_task_to_file(task)
 
     return True
 

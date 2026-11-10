@@ -1,10 +1,22 @@
 import json
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from string import Template
 
 import mistune
+
+
+TASK_MARKDOWN = """# $title
+
+ - STATUS: $status
+ - PRIORITY:$priority
+ - TAGS:$tags
+ - DEPENDS:$depends
+
+$body
+"""
 
 
 class TaskStatus(Enum):
@@ -166,6 +178,21 @@ def get_task_from_file(task_file: Path, task_id: str) -> tuple[bool, Task | None
         return True, task
 
 
+def write_task_to_file(task: Task):
+    """Writes a task to file with filename stored in task"""
+    with open(task.task_file, "w") as f:
+        s = Template(TASK_MARKDOWN)
+        mapping = {
+            "title"     : task.header,
+            "status"    : task.status.name,
+            "priority"  : " " + str(task.priority),
+            "tags"      : " " + ", ".join(task.tags),
+            "depends"   : " " + ", ".join(task.depends),
+            "body"      : task.body,
+        }
+        f.write(s.substitute(mapping))
+
+
 def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
     depends = []
     # requires full task ID
@@ -186,7 +213,7 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
             RequiredElementNotFoundError,
             TaskHeaderNotFoundError,
             MarkdownConvertValueError,
-        ) as e:
+        ):
             depends.append(
                 Task(
                     task_id=depend_task_id,
