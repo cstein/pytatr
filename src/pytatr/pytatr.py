@@ -99,13 +99,26 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
         print(f"[ERROR]: could not read file '{args.body_file!s:s}'")
         sys.exit(ERROR_FILE_NOT_FOUND)
 
+
+    # we have now succesfully written our new TASK.md file and
+    # now iterate through the blocks list and update the depen-
+    # dencies of *OTHER* tasks to be dependent on *THIS* task id
+    blocked_ids = [resolve_unique_task_id(task_folder, i) for i in args.blocks]
+    for blocked_id in blocked_ids:
+        blocked_task_file = task_folder / Path(blocked_id) / Path("TASK.md");
+        success , blocked_task = read_task_from_file(blocked_task_file, blocked_id);
+        if success:
+            blocked_task.depends.append(task_id)
+            write_task_to_file(blocked_task)
+            print(f"[INFO]: updated {blocked_id:s}: DEPENDS += {task_id}", file=sys.stderr)
+
     depends = [resolve_unique_task_id(task_folder, i) for i in args.depends]
 
     full_task_path.mkdir(parents=True)
     task = Task(
         task_file = full_task_path / Path("TASK.md"),
         task_id   = task_id,
-        status    = TaskStatus.OPEN.name,
+        status    = TaskStatus.OPEN,
         priority  = args.priority,
         tags      = args.tags,
         depends   = depends,
@@ -305,15 +318,21 @@ def parse_args() -> Namespace:
         default=100,
         type=int,
         metavar="NUMBER",
-        help="Priority of task. Default is %(default)s.",
+        help="Priority of task. 1 is lowest, 100 is highest. Default is %(default)s.",
     )
     ap_create.add_argument(
-        "-d",
         "--depends",
         default=[],
         nargs="*",
         metavar="TASKID",
-        help="Task IDs for direct dependencies. Must be existing tasks.",
+        help="Task IDs this task is dependent on direct. Must be existing tasks.",
+    )
+    ap_create.add_argument(
+        "--blocks",
+        default=[],
+        nargs="*",
+        metavar="TASKID",
+        help="Task IDs that this task will block. Must be existing tasks. (updates dependencies of these tasks).",
     )
     ap_create.add_argument(
         "--user-tag",
