@@ -112,7 +112,7 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
             write_task_to_file(blocked_task)
             print(f"[INFO]: updated {blocked_id:s}: DEPENDS += {task_id}", file=sys.stderr)
 
-    depends = [resolve_unique_task_id(task_folder, i) for i in args.depends]
+    depends = [resolve_unique_task_id(task_folder, depend_id) for depend_id in args.depends]
 
     full_task_path.mkdir(parents=True)
     task = Task(
