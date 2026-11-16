@@ -1,0 +1,8 @@
+# demo ticket
+
+ - STATUS: OPEN
+ - PRIORITY: 50
+ - TAGS: bug
+ - DEPENDS: 20261116-819568, 20261116-680900
+
+
