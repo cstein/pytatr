@@ -193,6 +193,9 @@ def read_task_from_file(task_file: Path, task_id: str) -> tuple[bool, Task | Non
     except FileNotFoundError:
         print(f"[ERROR]: {task_id:s}: TASK.md file missing", file=sys.stderr)
         return False, None
+    except NotADirectoryError:
+        print(f"[WARNING]: ignoring path '{task_file.parent!s:s}' because it is a file", file=sys.stderr)
+        return False, None
     else:
         return True, task
 
