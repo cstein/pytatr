@@ -4,7 +4,6 @@
  - PRIORITY: 100
  - TAGS: bug
  - DEPENDS: 20260917-774055
- - RELATED: 20260917-774055
 
  this could be alleviated implementing `tatr init`.
 
