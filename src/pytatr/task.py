@@ -126,7 +126,7 @@ def parse_task_file(filename: Path) -> Task:
 
     required_keys = ["STATUS", "PRIORITY", "TAGS", "DEPENDS"]
     out_types = {"STATUS": TaskStatus.from_string, "PRIORITY": int, "TAGS": to_list, "DEPENDS": to_list}
-    out_data =  {"STATUS": TaskStatus.INVALID    , "PRIORITY": 100, "TAGS": [],      "DEPENDS": [],    "HEADER": header}
+    out_data =  {"STATUS": TaskStatus.INVALID    , "PRIORITY": 100, "TAGS": [],      "DEPENDS": []}
 
     with filename.open("r") as f:
         line = f.readline()
@@ -172,7 +172,7 @@ def parse_task_file(filename: Path) -> Task:
             priority=out_data.get("PRIORITY"),
             tags=out_data.get("TAGS"),
             depends=out_data.get("DEPENDS"),
-            header=out_data.get("HEADER"),
+            header=header,
             body=body,
         )
 
