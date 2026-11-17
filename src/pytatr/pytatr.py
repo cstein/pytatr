@@ -138,6 +138,7 @@ def print_query_tasks(args: Namespace) -> bool:
     query = compile_query(args.query[:])
     if args.debug:
         print("[QUERY]:", query, file=sys.stderr)
+
     tasks_to_print: list[Task] = []
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
@@ -155,9 +156,15 @@ def print_query_tasks(args: Namespace) -> bool:
 
     if not args.output_json:
         for task in output:
-            print(format_task_as_single_line(task))
+            if args.only_show_ids:
+                print(task.task_id)
+            else:
+                print(format_task_as_single_line(task))
     else:
-        print(format_tasks_as_json(output, task_folder))
+        if args.only_show_ids:
+            print(json.dumps([task.task_id for task in output]))
+        else:
+            print(format_tasks_as_json(output, task_folder))
 
     return success
 
@@ -375,6 +382,13 @@ def parse_args() -> Namespace:
         action="store_true",
         default=False,
         help="output json instead of plain text",
+    )
+    ap_list.add_argument(
+        "-i",
+        dest="only_show_ids",
+        default=False,
+        action="store_true",
+        help="only show ids of tasks matching the query.",
     )
 
     ap_init = subparsers.add_parser("init", help="Creates the task folder.")
