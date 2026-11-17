@@ -5,9 +5,16 @@ from enum import Enum
 from pathlib import Path
 from string import Template
 
-import mistune
 
+"""The TASK format is fixed to four mandatory fields
+as outlined below:
+    STATUS = (OPEN|CLOSED)
+    PRIORITY = 1..100
+    TAGS = [str, str, ..., str]
+    DEPENDS [ID, ID, ..., ID]
 
+where ID is any valid task id (YYYYMMDD-123456).
+"""
 TASK_MARKDOWN = """# $title
 
  - STATUS: $status
@@ -30,7 +37,16 @@ class TaskStatus(Enum):
     def from_string(cls, value):
         return cls[value]
 
+
 class TaskHeaderNotFoundError(ValueError):
+    pass
+
+
+class TaskBlankLineMissing(ValueError):
+    pass
+
+
+class TaskMalformedListItem(ValueError):
     pass
 
 
@@ -60,25 +76,32 @@ class Task:
 
 
 def parse_task_file(filename: Path) -> Task:
-    def parse_header(heading_node: dict) -> str:
-        if heading_node["type"] != "heading":
-            raise TaskHeaderNotFoundError("missing header")
-        if heading_node["attrs"]["level"] != 1:
-            raise TaskHeaderNotFoundError("header is not top level")
-        if len(heading_node["children"]) != 1:
-            raise TaskHeaderNotFoundError("header does not support HTML tags")
-        text_node = heading_node["children"][0]
-        if text_node["type"] != "text":
-            raise TaskHeaderNotFoundError("header could not parsed as text")
-        return text_node["raw"]
+    def is_blank(value: str) -> bool:
+        line, _ = value.split("\n")
+        return len(line) == 0
 
-    def next_item_is_blank(node: dict) -> bool:
-        return node["type"] == "blank_line"
+    def expect_blank_line(value: str) -> None:
+        if not is_blank(value):
+            raise TaskBlankLineMissing(f"Expected blank line after header but got '{value:s}'")
 
-    def parse_list(node: dict) -> list[dict]:
-        assert node["type"] == "list"
-        assert len(node["children"]) > 0
-        return node["children"]
+    def trim_whitespace_dash_and_hash(value: str) -> str:
+        """trims whitespace, '-' and '#' from the left"""
+        index = 0
+        while value[index] in [" ", "-", "#"]:
+            index += 1
+        return value[index:]
+
+    def parse_list_items(value: str) -> tuple[str, str]:
+        line, _ = value.split("\n")
+        if not "-" in line:
+            raise ValueError(f"Expected list item (-) but found '{line:s}'")
+
+        try:
+            left, right = line.split(":")
+        except ValueError:
+            raise TaskMalformedListItem(f"Expected format '- KEY: VALUE' but got '{line:s}'")
+
+        return trim_whitespace_dash_and_hash(left), right.strip()
 
     def to_list(value: str, key: str = ",") -> list[str]:
         assert isinstance(value, str)
@@ -86,44 +109,36 @@ def parse_task_file(filename: Path) -> Task:
             return []
         return [m.strip() for m in value.split(key)]
 
-    def parse_list_item(node: dict) -> tuple[str, str]:
-        assert node["type"] == "list_item"
-        content = node["children"][0]["children"][0]
-        assert "raw" in content
-        raw = content["raw"]
-        name, seperator, value = raw.partition(":")
-        assert seperator, "could not find expected : in string"
-        return name.strip(), value.strip()
-
     def check_required_field_consistency(data: dict[str, list[str]], key: str, task_id: str) -> None:
         data_without_empty_items = [item for item in data[key] if len(item) > 0]
         if data[key] != data_without_empty_items:
             print(f"[WARNING]: {task_id:s}: field {key:s} has empty items which are ignored", file=sys.stderr)
         data[key] = data_without_empty_items
 
-    with filename.open("r") as f:
-        text = "".join(f.readlines())
-
-    md = mistune.markdown(text, renderer="ast")
-    header = parse_header(md.pop(0))
-    while next_item_is_blank(md[0]):
-        md.pop(0)
-    children = parse_list(md.pop(0))
+    def parse_header(line: str) -> str:
+        if "#" not in line:
+            raise TaskHeaderNotFoundError("missing header")
+        elif "##" in line:
+            raise TaskHeaderNotFoundError("header is not top level. # Task title required.")
+        else:
+            header, _ = line.split("\n")
+            return header
 
     required_keys = ["STATUS", "PRIORITY", "TAGS", "DEPENDS"]
     out_types = {"STATUS": TaskStatus.from_string, "PRIORITY": int, "TAGS": to_list, "DEPENDS": to_list}
-    out_data = {
-        "HEADER": header,
-        "TAGS": [],
-        "PRIORITY": 100,
-        "STATUS": TaskStatus.INVALID,
-        "DEPENDS": [],
-    }
+    out_data =  {"STATUS": TaskStatus.INVALID    , "PRIORITY": 100, "TAGS": [],      "DEPENDS": [],    "HEADER": header}
 
-    found_required_keys = []
-    while len(children) > 0:
-        name, value = parse_list_item(children.pop(0))
-        if name in required_keys:
+    with filename.open("r") as f:
+        line = f.readline()
+        header = parse_header(line)
+
+        line = f.readline(); expect_blank_line(line)
+
+        # parse list items
+        found_required_keys = []
+        for i in range(len(required_keys)):
+            line = f.readline()
+            name, value = parse_list_items(line)
             found_required_keys.append(name)
             try:
                 out_data[name] = out_types[name](value)
@@ -135,26 +150,31 @@ def parse_task_file(filename: Path) -> Task:
                 raise MarkdownConvertValueError(
                     f"field {name:s} conversion to {out_types[name]!s:s} failed to convert value {value:s} of type {type(value)!s:s}"
                 )
-        else:
-            out_data[name] = value
 
-    for required_key in required_keys:
-        if required_key not in found_required_keys:
-            raise RequiredElementNotFoundError(required_key)
+        line = f.readline(); expect_blank_line(line)
 
-    task_id = filename.parent.stem
-    check_required_field_consistency(out_data, "TAGS",    task_id)
-    check_required_field_consistency(out_data, "DEPENDS", task_id)
+        # parse remaining as body
+        body = "".join(f.readlines())
 
-    return Task(
-        task_file=filename,
-        task_id=task_id,
-        status=out_data.get("STATUS", TaskStatus.INVALID),
-        priority=out_data.get("PRIORITY"),
-        tags=out_data.get("TAGS"),
-        depends=out_data.get("DEPENDS"),
-        header=out_data.get("HEADER"),
-    )
+        # now we check for consistency
+        for required_key in required_keys:
+            if required_key not in found_required_keys:
+                raise RequiredElementNotFoundError(required_key)
+
+        task_id = filename.parent.stem
+        check_required_field_consistency(out_data, "TAGS",    task_id)
+        check_required_field_consistency(out_data, "DEPENDS", task_id)
+
+        return Task(
+            task_file=filename,
+            task_id=task_id,
+            status=out_data.get("STATUS", TaskStatus.INVALID),
+            priority=out_data.get("PRIORITY"),
+            tags=out_data.get("TAGS"),
+            depends=out_data.get("DEPENDS"),
+            header=out_data.get("HEADER"),
+            body=body,
+        )
 
 
 def read_task_from_file(task_file: Path, task_id: str) -> tuple[bool, Task | None]:
@@ -208,6 +228,7 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
 
         depend_task_file = task_folder / depend_task_id / Path("TASK.md")
         try:
+            # TODO (CS) 20261116: Is this not read_task_from_file because we return a 'bad' task?
             depends.append(parse_task_file(depend_task_file))
         except (
             RequiredElementNotFoundError,
