@@ -481,7 +481,6 @@ def main(args: Namespace):
                 if found_cyclic:
                     sys.exit(ERROR_TASK_CYCLIC_DEPENDENCY)
             case "set":
-                print("[INFO]:", args)
                 success = update_task_from_command_line(args)
             case _:
                 print(
