@@ -22,8 +22,7 @@ TASK_MARKDOWN = """# $title
  - TAGS:$tags
  - DEPENDS:$depends
 
-$body
-"""
+$body"""
 
 
 class TaskStatus(Enum):
@@ -122,7 +121,7 @@ def parse_task_file(filename: Path) -> Task:
             raise TaskHeaderNotFoundError("header is not top level. # Task title required.")
         else:
             header, _ = line.split("\n")
-            return header
+            return trim_whitespace_dash_and_hash(header)
 
     required_keys = ["STATUS", "PRIORITY", "TAGS", "DEPENDS"]
     out_types = {"STATUS": TaskStatus.from_string, "PRIORITY": int, "TAGS": to_list, "DEPENDS": to_list}
