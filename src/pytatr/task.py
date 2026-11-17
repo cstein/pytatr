@@ -299,14 +299,15 @@ def task_to_dict(task: Task, task_folder: Path) -> dict[str, str | int | list]:
     ]
     files = [child.name for child in (task_folder / task.task_id).iterdir()]
     return {
-        "id": task.task_id,
-        "title": task.header,
-        "status": task.status.name,
-        "priority": task.priority,
-        "tags": task.tags,
-        "depends": depends,
-        "files": files,
-        "path": str(task.task_file),
+        "id"       : task.task_id,
+        "title"    : task.header,
+        "status"   : task.status.name,
+        "priority" : task.priority,
+        "tags"     : task.tags,
+        "depends"  : depends,
+        "files"    : files,
+        "path"     : str(task.task_file),
+        "body"     : task.body,
     }
 
 
