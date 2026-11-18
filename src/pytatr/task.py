@@ -5,6 +5,7 @@ from enum import Enum
 from pathlib import Path
 from string import Template
 
+from pytatr.taskid import TaskID
 
 """The TASK format is fixed to four mandatory fields
 as outlined below:
@@ -45,6 +46,10 @@ class TaskBlankLineMissing(ValueError):
     pass
 
 
+class ExpectedTaskListItemNotFoundError(ValueError):
+    pass
+
+
 class TaskMalformedListItem(ValueError):
     pass
 
@@ -62,16 +67,40 @@ class Task:
     """Represents a task"""
 
     task_file: Path
-    task_id: str
+    task_id: TaskID
     status: TaskStatus
     priority: int
     tags: list[str]
-    depends: list[str]
+    depends: list[TaskID]
     header: str
     body: str = ""
 
     def is_valid(self):
         return self.status in [TaskStatus.OPEN, TaskStatus.CLOSED]
+
+    def to_dict(self) -> dict[str, str | int | list | dict]:
+        task_folder: Path = self.task_file.parent.parent
+        """formats output as json"""
+        depends = [
+            {
+                "id": depend_task.task_id.to_string(),
+                "path": str(depend_task.task_file),
+                "status": depend_task.status.name,
+            }
+            for depend_task in build_task_dependencies(self)
+        ]
+        files = [child.name for child in (task_folder / self.task_id).iterdir()]
+        return {
+            "id"       : self.task_id.to_string(),
+            "title"    : self.header,
+            "status"   : self.status.name,
+            "priority" : self.priority,
+            "tags"     : self.tags,
+            "depends"  : depends,
+            "files"    : files,
+            "path"     : str(self.task_file),
+            "body"     : self.body,
+        }
 
 
 def parse_task_file(filename: Path) -> Task:
@@ -93,7 +122,7 @@ def parse_task_file(filename: Path) -> Task:
     def parse_list_items(value: str) -> tuple[str, str]:
         line, _ = value.split("\n")
         if not "-" in line:
-            raise ValueError(f"Expected list item (-) but found '{line:s}'")
+            raise ExpectedTaskListItemNotFoundError(f"Expected list item (-) but found '{line:s}'")
 
         try:
             left, right = line.split(":")
@@ -108,10 +137,13 @@ def parse_task_file(filename: Path) -> Task:
             return []
         return [m.strip() for m in value.split(key)]
 
-    def check_required_field_consistency(data: dict[str, list[str]], key: str, task_id: str) -> None:
-        data_without_empty_items = [item for item in data[key] if len(item) > 0]
+    def to_taskid_list(value: str, key: str = ",") -> list[TaskID]:
+        return [TaskID.from_string(v) for v in to_list(value, key)]
+
+    def check_required_field_consistency(data: dict[str, list[str] | list[TaskID]], key: str, task_id: TaskID) -> None:
+        data_without_empty_items = [item for item in data[key] if item]
         if data[key] != data_without_empty_items:
-            print(f"[WARNING]: {task_id:s}: field {key:s} has empty items which are ignored", file=sys.stderr)
+            print(f"[WARNING]: {task_id!s:s}: field {key:s} has empty items which are ignored", file=sys.stderr)
         data[key] = data_without_empty_items
 
     def parse_header(line: str) -> str:
@@ -124,7 +156,7 @@ def parse_task_file(filename: Path) -> Task:
             return trim_whitespace_dash_and_hash(header)
 
     required_keys = ["STATUS", "PRIORITY", "TAGS", "DEPENDS"]
-    out_types = {"STATUS": TaskStatus.from_string, "PRIORITY": int, "TAGS": to_list, "DEPENDS": to_list}
+    out_types = {"STATUS": TaskStatus.from_string, "PRIORITY": int, "TAGS": to_list, "DEPENDS": to_taskid_list}
     out_data =  {"STATUS": TaskStatus.INVALID    , "PRIORITY": 100, "TAGS": [],      "DEPENDS": []}
 
     with filename.open("r") as f:
@@ -160,7 +192,7 @@ def parse_task_file(filename: Path) -> Task:
             if required_key not in found_required_keys:
                 raise RequiredElementNotFoundError(required_key)
 
-        task_id = filename.parent.stem
+        task_id = TaskID.from_string(filename.parent.stem)
         check_required_field_consistency(out_data, "TAGS",    task_id)
         check_required_field_consistency(out_data, "DEPENDS", task_id)
 
@@ -176,9 +208,12 @@ def parse_task_file(filename: Path) -> Task:
         )
 
 
-def read_task_from_file(task_file: Path, task_id: str) -> tuple[bool, Task | None]:
+def read_task_from_file(task_file: Path, task_id: TaskID) -> tuple[bool, Task | None]:
     try:
         task = parse_task_file(task_file)
+    except ExpectedTaskListItemNotFoundError as e:
+        print(f"[ERROR]: {task_id:s}: while parsing task fields the following error occured: {e}")
+        return False, None
     except TaskHeaderNotFoundError as e:
         print(f"[ERROR]: {task_id:s}: while parsing the task file header the following error occured: {e}", file=sys.stderr)
         return False, None
@@ -209,13 +244,14 @@ def write_task_to_file(task: Task):
             "status"    : task.status.name,
             "priority"  : " " + str(task.priority),
             "tags"      : " " + ", ".join(task.tags),
-            "depends"   : " " + ", ".join(task.depends),
+            "depends"   : " " + ", ".join(map(str, task.depends)),
             "body"      : task.body,
         }
         f.write(s.substitute(mapping))
 
 
-def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
+def build_task_dependencies(task: Task) -> list[Task]:
+    task_folder: Path = task.task_file.parent.parent
     depends = []
     # requires full task ID
     # TODO (CS) cleanup code for dummy dependency. see 20261030-834808
@@ -228,7 +264,7 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
             )
             continue
 
-        depend_task_file = task_folder / depend_task_id / Path("TASK.md")
+        depend_task_file = task_folder / Path(depend_task_id) / Path("TASK.md")
         try:
             # TODO (CS) 20261116: Is this not read_task_from_file because we return a 'bad' task?
             depends.append(parse_task_file(depend_task_file))
@@ -263,13 +299,15 @@ def build_task_dependencies(task: Task, task_folder: Path) -> list[Task]:
     return depends
 
 
+
 def format_task_as_single_line(task: Task) -> str:
     return f"{task.task_file!s:s} {task.status.name:>6s} [PRIORITY: {task.priority:>3d}] [{','.join(task.tags)}] {task.header:s}"
 
 
-def format_task_as_multiline(task: Task, task_folder: Path) -> str:
+def format_task_as_multiline(task: Task) -> str:
+    task_folder: Path = task.task_file.parent.parent
     format_str = "{0:<12s}{1:s}\n"
-    s = format_str.format("id:", task.task_id)
+    s = format_str.format("id:", task.task_id.to_string())
     s += format_str.format("title:", task.header)
     s += format_str.format("status:", task.status.name)
     s += format_str.format("priority:", str(task.priority))
@@ -277,8 +315,8 @@ def format_task_as_multiline(task: Task, task_folder: Path) -> str:
 
     # we need the status of any dependencies
     depends = [
-        f"{depend_task.task_id:s} ({depend_task.status.name})"
-        for depend_task in build_task_dependencies(task, task_folder)
+        f"{depend_task.task_id!s:s} ({depend_task.status.name})"
+        for depend_task in build_task_dependencies(task)
     ]
     s += format_str.format("depends:", ", ".join(depends))
     files = ", ".join([child.name for child in (task_folder / task.task_id).iterdir()])
@@ -287,33 +325,11 @@ def format_task_as_multiline(task: Task, task_folder: Path) -> str:
     return s
 
 
-def task_to_dict(task: Task, task_folder: Path) -> dict[str, str | int | list]:
-    """formats output as json"""
-    depends = [
-        {
-            "id": depend_task.task_id,
-            "path": str(depend_task.task_file),
-            "status": depend_task.status.name,
-        }
-        for depend_task in build_task_dependencies(task, task_folder)
-    ]
-    files = [child.name for child in (task_folder / task.task_id).iterdir()]
-    return {
-        "id"       : task.task_id,
-        "title"    : task.header,
-        "status"   : task.status.name,
-        "priority" : task.priority,
-        "tags"     : task.tags,
-        "depends"  : depends,
-        "files"    : files,
-        "path"     : str(task.task_file),
-        "body"     : task.body,
-    }
 
 
-def format_task_as_json(task: Task, task_folder: Path) -> str:
-    return json.dumps(task_to_dict(task, task_folder))
+def format_task_as_json(task: Task) -> str:
+    return json.dumps(task.to_dict())
 
 
-def format_tasks_as_json(tasks: list[Task], task_folder: Path) -> str:
-    return json.dumps([task_to_dict(task, task_folder) for task in tasks])
+def format_tasks_as_json(tasks: list[Task]) -> str:
+    return json.dumps([task.to_dict() for task in tasks])

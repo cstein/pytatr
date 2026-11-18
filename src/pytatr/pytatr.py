@@ -9,6 +9,13 @@ from pathlib import Path
 import json
 
 from pytatr.query import QueryError, QuerySyntaxError, compile_query, query_matches_task
+from pytatr.taskid import (
+    TaskID,
+    resolve_task_ids,
+    resolve_unique_task_id,
+    NoTaskIDMatchError,
+    AmbiguousTaskIDMatchError,
+)
 from pytatr.task import (
     Task,
     TaskStatus,
@@ -65,17 +72,6 @@ class ToPathType(Action):
         setattr(namespace, self.dest, Path(value))
 
 
-def create_task_id(args: Namespace) -> str:
-    """Create a task id"""
-    time_dict = time.localtime()
-    time_str = time.strftime("%Y%m%d", time_dict)
-    chars = "".join([random.choice(CHARS) for _ in range(NUM_CHARS)])
-    user_tag = ""
-    if args.user_tag is not None:
-        user_tag = "-" + args.user_tag
-    return f"{time_str:s}-{chars:s}{user_tag:s}"
-
-
 def read_body_content_from_file(filename: Path | None) -> str:
     if filename is None:
         return ""
@@ -83,34 +79,30 @@ def read_body_content_from_file(filename: Path | None) -> str:
         return f.read()
 
 
-def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
+def create_new_task_with_content(args: Namespace) -> None:
     """Create a folder named from task id with empty contents"""
     task_folder = require_task_folder(args)
 
-    task_id = create_task_id(args)
+    task_id = TaskID.generate() # create_task_id(args)
     while full_task_path := task_folder / Path(task_id):
         if not full_task_path.is_dir():
             break
-        task_id = create_task_id(args)
+        task_id = TaskID.generate() # create_task_id(args)
 
-    try:
-        file_content = read_body_content_from_file(args.body_file)
-    except FileNotFoundError as e:
-        print(f"[ERROR]: could not read file '{args.body_file!s:s}'")
-        sys.exit(ERROR_FILE_NOT_FOUND)
+    file_content = read_body_content_from_file(args.body_file)
 
 
     # we have now succesfully written our new TASK.md file and
     # now iterate through the blocks list and update the depen-
     # dencies of *OTHER* tasks to be dependent on *THIS* task id
-    blocked_ids = [resolve_unique_task_id(task_folder, i) for i in args.blocks]
+    blocked_ids: list[TaskID] = [resolve_unique_task_id(task_folder, i) for i in args.blocks]
     for blocked_id in blocked_ids:
-        blocked_task_file = task_folder / Path(blocked_id) / Path("TASK.md");
+        blocked_task_file = task_folder / blocked_id / Path("TASK.md");
         success , blocked_task = read_task_from_file(blocked_task_file, blocked_id);
         if success:
             blocked_task.depends.append(task_id)
             write_task_to_file(blocked_task)
-            print(f"[INFO]: updated {blocked_id:s}: DEPENDS += {task_id}", file=sys.stderr)
+            print(f"[INFO]: updated {blocked_id!s:s}: DEPENDS += {task_id!s:s}", file=sys.stderr)
 
     depends = [resolve_unique_task_id(task_folder, depend_id) for depend_id in args.depends]
 
@@ -127,7 +119,7 @@ def create_task_id_folder_with_empty_contents(args: Namespace) -> None:
     )
     write_task_to_file(task)
 
-    print(f"{task_id:s}", file=sys.stdout)
+    print(f"{task_id!s:s}", file=sys.stdout)
 
 
 def print_query_tasks(args: Namespace) -> bool:
@@ -143,7 +135,7 @@ def print_query_tasks(args: Namespace) -> bool:
     for child in task_folder.iterdir():
         task_file = child / Path("TASK.md")
         successfully_loaded_task, task = read_task_from_file(task_file, str(child))
-        if successfully_loaded_task and query_matches_task(query, task, task_folder):
+        if successfully_loaded_task and query_matches_task(query, task):
             tasks_to_print.append(task)
         success = success & successfully_loaded_task
 
@@ -157,46 +149,18 @@ def print_query_tasks(args: Namespace) -> bool:
     if not args.output_json:
         for task in output:
             if args.only_show_ids:
-                print(task.task_id)
+                print(task.task_id.to_string())
             else:
                 print(format_task_as_single_line(task))
     else:
         if args.only_show_ids:
-            print(json.dumps([task.task_id for task in output]))
+            print(json.dumps([task.task_id.to_string() for task in output]))
         else:
-            print(format_tasks_as_json(output, task_folder))
+            print(format_tasks_as_json(output))
 
     return success
 
 
-def resolve_task_ids(task_folder: Path, unresolved_id: str) -> set[None | str]:
-    """Resolves task ids based on a (potentially) unresolved id"""
-    found_ids = []
-    for child in task_folder.iterdir():
-        # full match first
-        if child.match(unresolved_id):
-            found_ids.append(child.stem)
-
-        # semi-fuzzy match on the random part only
-        if child.match(f"*-{unresolved_id}*"):
-            found_ids.append(child.stem)
-
-    return set(found_ids)
-
-
-def resolve_unique_task_id(task_folder: Path, unresolved_id: str) -> str:
-    """Resolves a unique task id based on a (potentially) unresolved id"""
-    unique_ids = resolve_task_ids(task_folder, unresolved_id)
-    if not unique_ids:
-        print(f"[ERROR]: query '{unresolved_id}' found no matching tasks", file=sys.stderr)
-        sys.exit(ERROR_TASK_NOT_FOUND)
-    elif len(unique_ids) > 1:
-        print(
-            f"[ERROR]: query '{unresolved_id}' is ambiguous: {', '.join([i for i in unique_ids])}",
-            file=sys.stderr,
-        )
-        sys.exit(ERROR_TASK_DUPLICATE)
-    return unique_ids.pop()
 
 
 def show_single_task(args: Namespace) -> bool:
@@ -208,9 +172,9 @@ def show_single_task(args: Namespace) -> bool:
 
     if success:
         if not args.output_json:
-            print(format_task_as_multiline(task, task_folder))
+            print(format_task_as_multiline(task))
         else:
-            print(format_task_as_json(task, task_folder))
+            print(format_task_as_json(task))
 
     return success
 
@@ -220,8 +184,7 @@ def show_matching_ids(args: Namespace) -> None:
     task_ids = resolve_task_ids(task_folder, args.id)
 
     if not task_ids:
-        print(f"[ERROR]: query '{args.id}' found no matching tasks", file=sys.stderr)
-        sys.exit(ERROR_TASK_NOT_FOUND)
+        raise NoTaskIDMatchError(f"query '{unresolved_id}' found no matching tasks")
     else:
         if not args.output_json:
             print("\n".join([s for s in task_ids]))
@@ -229,12 +192,12 @@ def show_matching_ids(args: Namespace) -> None:
             print(json.dumps([{"id": s} for s in task_ids]))
 
 
-def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), indent: int = 0) -> bool:
+def build_dependency_tree(task: Task, visited: tuple = (), indent: int = 0) -> bool:
     def print_indent_task(task: Task, indent: int = 0):
         padding = " " * indent
-        print(f"{padding:s}{task.task_id} ({task.status.name:s})")
+        print(f"{padding:s}{task.task_id!s:s} ({task.status.name:s})")
 
-    def build_cyclic_map(task_id: str, visited: tuple) -> str:
+    def build_cyclic_map(task_id: TaskID, visited: tuple) -> str:
         first = visited.index(task_id)
         s = f"{visited[first]:s} -> "
         items = visited[first+1:] + (task_id, )
@@ -244,7 +207,7 @@ def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), in
     print_indent_task(task, indent)
 
     found_cyclic = False
-    depends = build_task_dependencies(task, task_folder)
+    depends = build_task_dependencies(task)
     for depend_task in depends:
         if depend_task.task_id in visited:
             print(f"[ERROR]: cycle {build_cyclic_map(depend_task.task_id, visited):s}", file=sys.stderr)
@@ -254,7 +217,7 @@ def build_dependency_tree(task: Task, task_folder: Path, visited: tuple = (), in
         next_set = visited + (depend_task.task_id,)
 
         if depend_task.is_valid():
-            found_cyclic = build_dependency_tree(depend_task, task_folder, next_set, indent + 2)
+            found_cyclic = build_dependency_tree(depend_task, next_set, indent + 2)
         else:
             print_indent_task(depend_task, indent + 2)
 
@@ -283,7 +246,7 @@ def show_dependency_tree(args: Namespace) -> bool:
 
     found_cyclic_dependency = False
     if success:
-        found_cyclic_dependency = build_dependency_tree(task, task_folder, (task.task_id,), 0)
+        found_cyclic_dependency = build_dependency_tree(task, (task.task_id,), 0)
 
     return found_cyclic_dependency
 
@@ -457,7 +420,7 @@ def parse_args() -> Namespace:
     return ap.parse_args()
 
 
-def main(args: Namespace):
+def main(args: Namespace) -> int:
     if args.debug:
         print("[ARGS]:", args)
 
@@ -466,50 +429,59 @@ def main(args: Namespace):
             case "init":
                 args.task_folder.mkdir(exist_ok=False)
             case "ls":
-                try:
-                    success = print_query_tasks(args)
-                except QueryError as e:
-                    print(f"[ERROR]: {e}", file=sys.stderr)
-                    sys.exit(ERROR_QUERY)
-                except QuerySyntaxError as e:
-                    print(f"[SYNTAX ERROR]: {e}", file=sys.stderr)
-                    sys.exit(ERROR_QUERY_SYNTAX)
+                success = print_query_tasks(args)
                 if not success:
-                    sys.exit(ERROR_TASK_PARSE)
+                    return ERROR_TASK_PARSE
             case "create":
                 if args.priority > 100 or args.priority < 1:
-                    print(
-                        f"[ERROR]: priority {args.priority:d} outside 1-100 (1 = least, 100 = most important)",
-                        file=sys.stderr,
-                    )
-                    sys.exit(ERROR_CREATE)
-                create_task_id_folder_with_empty_contents(args)
+                    raise ValueError(f"priority {args.priority:d} outside 1-100 (1 = least, 100 = most important)")
+                create_new_task_with_content(args)
             case "show":
                 success = show_single_task(args)
                 if not success:
-                    sys.exit(ERROR_TASK_PARSE)
+                    return ERROR_TASK_PARSE
             case "id":
                 show_matching_ids(args)
             case "depends":
                 found_cyclic = show_dependency_tree(args)
                 if found_cyclic:
-                    sys.exit(ERROR_TASK_CYCLIC_DEPENDENCY)
+                    return ERROR_TASK_CYCLIC_DEPENDENCY
             case "set":
                 success = update_task_from_command_line(args)
             case _:
-                print(
-                    f"[ERROR]: command {args.command} does not exist", file=sys.stderr
-                )
-                sys.exit(ERROR_USAGE)
+                print(f"[ERROR]: command {args.command} does not exist", file=sys.stderr)
+                return ERROR_USAGE
+
+    except QueryError as e:
+        print(f"[ERROR]: {e}", file=sys.stderr)
+        return ERROR_QUERY
+
+    except QuerySyntaxError as e:
+        print(f"[SYNTAX ERROR]: {e}", file=sys.stderr)
+        return ERROR_QUERY_SYNTAX
+
+    except NoTaskIDMatchError as e:
+        print(f"[ERROR]: {e}", file=sys.stderr)
+        return ERROR_TASK_NOT_FOUND
+
+    except AmbiguousTaskIDMatchError as e:
+        print(f"[ERROR]: {e}", file=sys.stderr)
+        return ERROR_TASK_DUPLICATE
+
     except (FileExistsError, TasksFolderNotFoundError) as e:
         print(f"[ERROR]: {e}", file=sys.stderr)
-        sys.exit(ERROR_FOLDER)
-    sys.exit(ERROR_OK)
+        return ERROR_FOLDER
+
+    except FileNotFoundError as e:
+        print(f"[ERROR]: {e}", file=sys.stderr)
+        return ERROR_FILE_NOT_FOUND
+
+    return ERROR_OK
 
 
-def cli():
-    main(parse_args())
+def cli() -> int:
+    return main(parse_args())
 
 
 if __name__ == "__main__":
-    cli()
+    sys.exit(cli())

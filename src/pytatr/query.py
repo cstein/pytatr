@@ -140,7 +140,6 @@ def compile_query(tokens: list[str]) -> list[Op]:
 def query_matches_task(
     query: list[Op],
     task: Task,
-    task_folder: Path,
 ) -> bool:
     """Matches a compiled query with a specific task"""
 
@@ -161,9 +160,9 @@ def query_matches_task(
             case Op_Kind.OP_HAS_TAG:
                 stack.append(op.tag in task.tags)
             case Op_Kind.OP_DEPENDENCIES_ARE_BLOCKERS:
-                stack.append(TaskStatus.OPEN     in [t.status for t in build_task_dependencies(task, task_folder)])
+                stack.append(TaskStatus.OPEN     in [t.status for t in build_task_dependencies(task)])
             case Op_Kind.OP_DEPENDENCIES_ARE_NOT_BLOCKERS:
-                stack.append(TaskStatus.OPEN not in [t.status for t in build_task_dependencies(task, task_folder)])
+                stack.append(TaskStatus.OPEN not in [t.status for t in build_task_dependencies(task)])
             case Op_Kind.OP_HAS_TASKID:
                 stack.append(op.task_id == task.task_id)
             case Op_Kind.OP_AND:
