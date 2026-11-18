@@ -184,7 +184,7 @@ def show_matching_ids(args: Namespace) -> None:
     task_ids = resolve_task_ids(task_folder, args.id)
 
     if not task_ids:
-        raise NoTaskIDMatchError(f"query '{unresolved_id}' found no matching tasks")
+        raise NoTaskIDMatchError(f"query '{args.id:s}' found no matching tasks")
     else:
         if not args.output_json:
             print("\n".join([s for s in task_ids]))
