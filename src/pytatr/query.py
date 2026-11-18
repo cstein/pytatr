@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 
 from pytatr.task import Task, build_task_dependencies, TaskStatus
+from pytatr.taskid import resolve_task_ids
 
 
 class Op_Kind(Enum):
@@ -164,7 +165,8 @@ def query_matches_task(
             case Op_Kind.OP_DEPENDENCIES_ARE_NOT_BLOCKERS:
                 stack.append(TaskStatus.OPEN not in [t.status for t in build_task_dependencies(task)])
             case Op_Kind.OP_HAS_TASKID:
-                stack.append(op.task_id == task.task_id)
+                task_folder: Path = task.task_file.parent.parent
+                stack.append(task.task_id in resolve_task_ids(task_folder, op.task_id))
             case Op_Kind.OP_AND:
                 a = stack.pop()
                 b = stack.pop()

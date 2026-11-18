@@ -61,22 +61,26 @@ class TaskID:
         return {"first": self.first, "last": self.last}
 
 
-def resolve_task_ids(task_folder: Path, unresolved_id: TaskID) -> set[None | TaskID]:
+def resolve_task_ids(task_folder: Path, unresolved_id: str) -> set[TaskID]:
     """Resolves task ids based on a (potentially) unresolved id"""
     found_ids = []
     for child in task_folder.iterdir():
         # full match first
         if child.match(unresolved_id):
-            found_ids.append(child.stem)
+            found_ids.append(TaskID.from_string(child.stem))
+
+        # semi-fuzzy match on the date part only
+        if child.match(f"{unresolved_id}*-*"):
+            found_ids.append(TaskID.from_string(child.stem))
 
         # semi-fuzzy match on the random part only
         if child.match(f"*-{unresolved_id}*"):
-            found_ids.append(child.stem)
+            found_ids.append(TaskID.from_string(child.stem))
 
     return set(found_ids)
 
 
-def resolve_unique_task_id(task_folder: Path, unresolved_id: TaskID) -> TaskID:
+def resolve_unique_task_id(task_folder: Path, unresolved_id: str) -> TaskID:
     """Resolves a unique task id based on a (potentially) unresolved id"""
     unique_ids = resolve_task_ids(task_folder, unresolved_id)
     if not unique_ids:
