@@ -233,7 +233,7 @@ def update_task_from_command_line(args: Namespace) -> bool:
         if new_tags:
             task.tags = new_tags
         else:
-            raise EmptyTagsListError("ASD")
+            raise EmptyTagsListError("An empty list at this point is NOT allowed")
 
     if hasattr(args, "depends"):
         append_depends = [resolve_unique_task_id(task_folder, value[1:]) for value in args.depends if value[0] == "+"]
