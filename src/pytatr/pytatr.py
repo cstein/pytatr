@@ -1,23 +1,13 @@
 """Python implementation of the TAsk TRacker (tatr)"""
 
-import random
+import json
 import sys
-import time
-from argparse import Action, ArgumentParser, Namespace
+from argparse import Namespace
 from pathlib import Path
 
-import json
-
 from pytatr.config import load_config
+from pytatr.parser import Parsers, build_parsers
 from pytatr.query import QueryError, QuerySyntaxError, compile_query, query_matches_task
-from pytatr.taskid import (
-    TaskID,
-    resolve_task_ids,
-    resolve_unique_task_id,
-    NoTaskIDMatchError,
-    InvalidTaskIDError,
-    AmbiguousTaskIDMatchError,
-)
 from pytatr.task import (
     Task,
     TaskStatus,
@@ -29,10 +19,14 @@ from pytatr.task import (
     read_task_from_file,
     write_task_to_file,
 )
-
-CHARS = "0123456789"
-NUM_CHARS = 6
-MAX_HEADER_PRINT_LEN = 100
+from pytatr.taskid import (
+    AmbiguousTaskIDMatchError,
+    InvalidTaskIDError,
+    NoTaskIDMatchError,
+    TaskID,
+    resolve_task_ids,
+    resolve_unique_task_id,
+)
 
 # Exit codes
 ERROR_OK = 0
@@ -62,17 +56,6 @@ def require_task_folder(args: Namespace) -> Path:
     return args.task_folder
 
 
-class ConcatenateStringsAction(Action):
-    """Concatenate inputs into one string"""
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        value = " ".join(values)
-        setattr(namespace, self.dest, value)
-
-
-class ToPathType(Action):
-    def __call__(self, parser, namespace, value, option_string=None):
-        setattr(namespace, self.dest, Path(value))
 
 
 def read_body_content_from_file(filename: Path | None) -> str:
@@ -229,7 +212,7 @@ def update_task_from_command_line(args: Namespace) -> bool:
     task_folder = require_task_folder(args)
     task_id = resolve_unique_task_id(task_folder, args.id)
     task_file = task_folder / task_id / Path("TASK.md")
-    success, task = read_task_from_file(task_file, task_id)
+    _ , task = read_task_from_file(task_file, task_id)
 
     if hasattr(args, "status"):
         task.status = TaskStatus[args.status.upper()]
@@ -260,210 +243,18 @@ def show_dependency_tree(args: Namespace) -> bool:
 
 def parse_args() -> Namespace:
 
-    ap = ArgumentParser(description="A local task tracker.")
-    ap.add_argument(
-        "-f",
-        "--task-folder",
-        default=Path(".tasks"),
-        type=Path,
-        metavar="DIR",
-        action=ToPathType,
-        help="directory for storing tasks. Default is %(default)s",
-    )
-    ap.add_argument(
-        "--debug",
-        default=False,
-        action="store_true",
-        help="enables debug output",
-    )
-    subparsers = ap.add_subparsers(help="Commands", dest="command", required=True)
+    parsers: Parsers = build_parsers()
 
-    ap_create = subparsers.add_parser("create", help="Create a note")
-    ap_create.add_argument(
-        "title",
-        default=None,
-        nargs="+",
-        type=str,
-        help="Title of the task",
-        action=ConcatenateStringsAction,
-    )
-    ap_create.add_argument(
-        "-t",
-        "--tags",
-        default=["bug"],
-        nargs="+",
-        help="List of tags. Default is bug.",
-    )
-    ap_create.add_argument(
-        "-p",
-        "--priority",
-        default=100,
-        type=int,
-        metavar="NUMBER",
-        help="Priority of task. 1 is lowest, 100 is highest. Default is %(default)s.",
-    )
-    ap_create.add_argument(
-        "--depends",
-        default=[],
-        nargs="*",
-        metavar="TASKID",
-        help="Task IDs this task is dependent on direct. Must be existing tasks.",
-    )
-    ap_create.add_argument(
-        "--blocks",
-        default=[],
-        nargs="*",
-        metavar="TASKID",
-        help="Task IDs that this task will block. Must be existing tasks. (updates dependencies of these tasks).",
-    )
-    ap_create.add_argument(
-        "--body-file",
-        type=Path,
-        metavar="FILE",
-        action=ToPathType,
-        default=None,
-        help="premade content of a task body.",
-    )
-
-    ap_list = subparsers.add_parser("ls", help="list tasks.")
-    ap_list.add_argument(
-        "query",
-        default=["open"],
-        nargs="*",
-        help="Search query for tasks. Default is 'open'.",
-    )
-    ap_list.add_argument(
-        "-r",
-        dest="sort_reversed",
-        default=False,
-        action="store_true",
-        help="reverse listing.",
-    )
-    ap_list.add_argument(
-        "-p",
-        dest="sort_priority",
-        default=False,
-        action="store_true",
-        help="use priority to sort tasks. important first.",
-    )
-    ap_list.add_argument(
-        "--json",
-        dest="output_json",
-        action="store_true",
-        default=False,
-        help="output json instead of plain text",
-    )
-    ap_list.add_argument(
-        "-i",
-        dest="only_show_ids",
-        default=False,
-        action="store_true",
-        help="only show ids of tasks matching the query.",
-    )
-
-    ap_init = subparsers.add_parser("init", help="Creates the task folder.")
-    ap_init.add_argument(
-        "-v", dest="verbose", default=False, action="store_true", help="verbose output."
-    )
-
-    ap_deps = subparsers.add_parser("depends", help="lists a dependency tree")
-    ap_deps.add_argument(
-        "id",
-        default=None,
-        type=str,
-        metavar="TASKID",
-        help="id of the task. can be fuzzy",
-    )
-
-    ap_show = subparsers.add_parser("show", help="show a task with details.")
-    ap_show.add_argument(
-        "id",
-        default=None,
-        type=str,
-        metavar="TASKID",
-        help="id of the task. can be fuzzy",
-    )
-    ap_show.add_argument(
-        "--json",
-        dest="output_json",
-        action="store_true",
-        default=False,
-        help="output json instead of plain text",
-    )
-
-    ap_id = subparsers.add_parser("id", help="resolves task ids (or parts thereof) into valid ids.")
-    ap_id.add_argument(
-        "id",
-        default=None,
-        type=str,
-        metavar="TASKID",
-        help="id of the task(s). can match random part of task id",
-    )
-    ap_id.add_argument(
-        "--json",
-        dest="output_json",
-        action="store_true",
-        default=False,
-        help="output json instead of plain text",
-    )
-
-    ap_set = subparsers.add_parser("set", help="set various fields from the command line")
-    ap_set_subparsers = ap_set.add_subparsers(help="fields to set", dest="field", required=True)
-
-    ap_set_status = ap_set_subparsers.add_parser("status", help="set the status of a task")
-    ap_set_status.add_argument(
-        "status",
-        choices=("open", "closed"),
-        type=str,
-        metavar="STATUS",
-        help="should be one of: [%(choices)s]",
-    )
-    ap_set_status.add_argument(
-        "id",
-        type=str,
-        metavar="TASKID",
-        help="id of the task. must match exactly one task",
-    )
-
-    ap_set_tags = ap_set_subparsers.add_parser("tags", help="set the tags of a task")
-    ap_set_tags.add_argument(
-        "tags",
-        default=[],
-        nargs="+",
-        help="list of tags to set.",
-    )
-    ap_set_tags.add_argument(
-        "id",
-        type=str,
-        metavar="TASKID",
-        help="id of the task. must match exactly one task",
-    )
-
-    ap_set_depends = ap_set_subparsers.add_parser("depends", help="set the dependencies of a task")
-    ap_set_depends.add_argument(
-        "depends",
-        default=[],
-        nargs="+",
-        help="list of dependencies to set.",
-    )
-    ap_set_depends.add_argument(
-        "id",
-        type=str,
-        metavar="TASKID",
-        help="id of the task. must match exactly one task",
-    )
-
-    args = ap.parse_args()
+    args = parsers.parser.parse_args()
 
     # check for bad arguments according to config file
     config = load_config(args)
-    error_dispatcher = {"create": ap_create, "set": ap_set_tags}
-    if hasattr(args, "tags"):
-        if config.allowed_tags:
-            bad_tags = [t for t in args.tags if t not in config.allowed_tags]
-            if bad_tags:
-                parser = error_dispatcher.get(args.command, None)
-                parser.error(f"The supplied tags are not allowed: {", ".join(bad_tags):s}. Allowed tags from config are: {", ".join(config.allowed_tags):s}")
+    error_dispatcher = {"create": parsers.create_parser, "set": parsers.set_parser}
+    if hasattr(args, "tags") and config.allowed_tags:
+        bad_tags = [t for t in args.tags if t not in config.allowed_tags]
+        if bad_tags:
+            parser = error_dispatcher.get(args.command, None)
+            parser.error(f"The supplied tags are not allowed: {", ".join(bad_tags):s}. Allowed tags from config are: {", ".join(config.allowed_tags):s}")
 
     return args
 
