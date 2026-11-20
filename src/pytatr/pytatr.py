@@ -15,6 +15,7 @@ from pytatr.taskid import (
     resolve_task_ids,
     resolve_unique_task_id,
     NoTaskIDMatchError,
+    InvalidTaskIDError,
     AmbiguousTaskIDMatchError,
 )
 from pytatr.task import (
@@ -36,15 +37,16 @@ MAX_HEADER_PRINT_LEN = 100
 # Exit codes
 ERROR_OK = 0
 ERROR_FOLDER = 1
-ERROR_QUERY = 2
-ERROR_QUERY_SYNTAX = 10
+ERROR_QUERY = 8
+ERROR_QUERY_SYNTAX = 9
 ERROR_TASK_NOT_FOUND = 3
 ERROR_TASK_DUPLICATE = 4
 ERROR_TASK_PARSE = 5
 ERROR_TASK_CYCLIC_DEPENDENCY = 6
+ERROR_TASK_ID_ERROR = 11
 ERROR_CREATE = 7
-ERROR_USAGE = 8
-ERROR_FILE_NOT_FOUND = 9
+ERROR_USAGE = 2
+ERROR_FILE_NOT_FOUND = 10
 
 
 class TasksFolderNotFoundError(Exception):
@@ -236,6 +238,9 @@ def update_task_from_command_line(args: Namespace) -> bool:
 
     if hasattr(args, "tags"):
         task.tags = args.tags
+
+    if hasattr(args, "depends"):
+        task.depends = [TaskID.from_string(dependency) for dependency in args.depends]
 
     write_task_to_file(task)
 
@@ -434,6 +439,20 @@ def parse_args() -> Namespace:
         help="id of the task. must match exactly one task",
     )
 
+    ap_set_depends = ap_set_subparsers.add_parser("depends", help="set the dependencies of a task")
+    ap_set_depends.add_argument(
+        "depends",
+        default=[],
+        nargs="+",
+        help="list of dependencies to set.",
+    )
+    ap_set_depends.add_argument(
+        "id",
+        type=str,
+        metavar="TASKID",
+        help="id of the task. must match exactly one task",
+    )
+
     args = ap.parse_args()
 
     # check for bad arguments according to config file
@@ -490,6 +509,10 @@ def main(args: Namespace) -> int:
         return ERROR_QUERY_SYNTAX
 
     except NoTaskIDMatchError as e:
+        print(f"[ERROR]: {e}", file=sys.stderr)
+        return ERROR_TASK_NOT_FOUND
+
+    except InvalidTaskIDError as e:
         print(f"[ERROR]: {e}", file=sys.stderr)
         return ERROR_TASK_NOT_FOUND
 
