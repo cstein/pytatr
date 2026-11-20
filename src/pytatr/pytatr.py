@@ -234,6 +234,9 @@ def update_task_from_command_line(args: Namespace) -> bool:
     if hasattr(args, "status"):
         task.status = TaskStatus[args.status.upper()]
 
+    if hasattr(args, "tags"):
+        task.tags = args.tags
+
     write_task_to_file(task)
 
     return True
@@ -282,7 +285,11 @@ def parse_args() -> Namespace:
         action=ConcatenateStringsAction,
     )
     ap_create.add_argument(
-        "-t", "--tags", default=["bug"], nargs="+", help="List of tags. Default is bug."
+        "-t",
+        "--tags",
+        default=["bug"],
+        nargs="+",
+        help="List of tags. Default is bug.",
     )
     ap_create.add_argument(
         "-p",
@@ -307,11 +314,6 @@ def parse_args() -> Namespace:
         help="Task IDs that this task will block. Must be existing tasks. (updates dependencies of these tasks).",
     )
     ap_create.add_argument(
-        "--user-tag",
-        type=str,
-        help="user tag for tasks. use to avoid clashing with your team. No default.",
-    )
-    ap_create.add_argument(
         "--body-file",
         type=Path,
         metavar="FILE",
@@ -320,7 +322,7 @@ def parse_args() -> Namespace:
         help="premade content of a task body.",
     )
 
-    ap_list = subparsers.add_parser("ls", help="List tasks.")
+    ap_list = subparsers.add_parser("ls", help="list tasks.")
     ap_list.add_argument(
         "query",
         default=["open"],
@@ -418,16 +420,31 @@ def parse_args() -> Namespace:
         metavar="TASKID",
         help="id of the task. must match exactly one task",
     )
+    ap_set_tags = ap_set_subparsers.add_parser("tags", help="set the tags of a task")
+    ap_set_tags.add_argument(
+        "tags",
+        default=[],
+        nargs="+",
+        help="list of tags to set.",
+    )
+    ap_set_tags.add_argument(
+        "id",
+        type=str,
+        metavar="TASKID",
+        help="id of the task. must match exactly one task",
+    )
 
     args = ap.parse_args()
 
     # check for bad arguments according to config file
     config = load_config(args)
-    if args.command == "create" and hasattr(args, "tags"):
+    error_dispatcher = {"create": ap_create, "set": ap_set_tags}
+    if hasattr(args, "tags"):
         if config.allowed_tags:
             bad_tags = [t for t in args.tags if t not in config.allowed_tags]
             if bad_tags:
-                ap_create.error(f"The supplied tags are not allowed: {", ".join(bad_tags):s}")
+                parser = error_dispatcher.get(args.command, None)
+                parser.error(f"The supplied tags are not allowed: {", ".join(bad_tags):s}. Allowed tags from config are: {", ".join(config.allowed_tags):s}")
 
     return ap.parse_args()
 
