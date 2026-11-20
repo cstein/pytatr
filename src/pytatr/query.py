@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-import sys
 
-from pytatr.task import Task, build_task_dependencies, TaskStatus
+from pytatr.task import Task, TaskStatus, build_task_dependencies
 from pytatr.taskid import resolve_task_ids
 
 
@@ -69,7 +68,7 @@ def peek(tokens: list[str]) -> str | None:
 def parse_or(tokens: list[str]) -> list[Op]:
     a = parse_and(tokens)
     if peek(tokens) == "or":
-        and_token = chop(tokens)
+        _ = chop(tokens)
         return a + parse_and(tokens) + [Op(Op_Kind.OP_OR)]
     return a
 
@@ -78,7 +77,7 @@ def parse_and(tokens: list[str]) -> list[Op]:
     """binary operation and"""
     a = parse_not(tokens)
     if peek(tokens) == "and":
-        and_token = chop(tokens)
+        _ = chop(tokens)
         return a + parse_not(tokens) + [Op(Op_Kind.OP_AND)]
     return a
 
@@ -86,7 +85,7 @@ def parse_and(tokens: list[str]) -> list[Op]:
 def parse_not(tokens: list[str]) -> list[Op]:
     """unary operation not"""
     if peek(tokens) == "not":
-        not_token = chop(tokens)  # disregarded and inserted as Op below
+        _ = chop(tokens)  # disregarded and inserted as Op below
         return parse_primary(tokens) + [Op(Op_Kind.OP_NOT)]
     return parse_primary(tokens)
 
@@ -128,7 +127,6 @@ def parse_primary(tokens: list[str]) -> list[Op]:
 
 def compile_query(tokens: list[str]) -> list[Op]:
     """Compiles an expression query into a series of operations on a stack"""
-    org_query = " ".join(tokens)
     query = parse_or(tokens)
     # for more complicated queries we need to parse more using the while loop below
     # while peek(tokens) not in [None]:

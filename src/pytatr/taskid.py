@@ -1,10 +1,9 @@
+import random
+import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-import time
-import random
-import re
-import sys
 
 DATE_FORMAT = "%Y%m%d"
 REGEX_PATTERN = r"^\d{4}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])-[A-Za-z0-9]{6}$"

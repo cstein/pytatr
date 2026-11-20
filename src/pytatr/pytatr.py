@@ -56,8 +56,6 @@ def require_task_folder(args: Namespace) -> Path:
     return args.task_folder
 
 
-
-
 def read_body_content_from_file(filename: Path | None) -> str:
     if filename is None:
         return ""
@@ -244,8 +242,7 @@ def show_dependency_tree(args: Namespace) -> bool:
 def parse_args() -> Namespace:
 
     parsers: Parsers = build_parsers()
-
-    args = parsers.parser.parse_args()
+    args = parsers.main_parser.parse_args()
 
     # check for bad arguments according to config file
     config = load_config(args)

@@ -6,7 +6,7 @@ from pathlib import Path
 
 @dataclass
 class Parsers:
-    parser        : ArgumentParser
+    main_parser   : ArgumentParser
     create_parser : ArgumentParser | None = None
     set_parser    : ArgumentParser | None = None
 
