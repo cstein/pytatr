@@ -43,8 +43,10 @@ class Op:
 class QueryError(Exception):
     pass
 
+
 class QueryKeywordError(Exception):
     pass
+
 
 class QuerySyntaxError(Exception):
     pass

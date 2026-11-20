@@ -7,7 +7,13 @@ from pathlib import Path
 
 from pytatr.config import load_config
 from pytatr.parser import Parsers, build_parsers
-from pytatr.query import QueryError, QuerySyntaxError, compile_query, query_matches_task
+from pytatr.query import (
+    QueryError,
+    QueryKeywordError,
+    QuerySyntaxError,
+    compile_query,
+    query_matches_task
+)
 from pytatr.task import (
     Task,
     TaskStatus,
@@ -289,23 +295,27 @@ def main(args: Namespace) -> int:
                 return ERROR_USAGE
 
     except QueryError as e:
-        print(f"[ERROR]: {e}", file=sys.stderr)
+        print(f"[QUERY ERROR]: {e}", file=sys.stderr)
         return ERROR_QUERY
+
+    except QueryKeywordError as e:
+        print(f"[ERROR]: {e}", file=sys.stderr)
+        return ERROR_QUERY_SYNTAX
 
     except QuerySyntaxError as e:
         print(f"[SYNTAX ERROR]: {e}", file=sys.stderr)
         return ERROR_QUERY_SYNTAX
 
     except NoTaskIDMatchError as e:
-        print(f"[ERROR]: {e}", file=sys.stderr)
+        print(f"[TASK ID ERROR]: {e}", file=sys.stderr)
         return ERROR_TASK_NOT_FOUND
 
     except InvalidTaskIDError as e:
-        print(f"[ERROR]: {e}", file=sys.stderr)
+        print(f"[TASK ID ERROR]: {e}", file=sys.stderr)
         return ERROR_TASK_NOT_FOUND
 
     except AmbiguousTaskIDMatchError as e:
-        print(f"[ERROR]: {e}", file=sys.stderr)
+        print(f"[TASK ID ERROR]: {e}", file=sys.stderr)
         return ERROR_TASK_DUPLICATE
 
     except (FileExistsError, TasksFolderNotFoundError) as e:
