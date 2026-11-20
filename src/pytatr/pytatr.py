@@ -225,7 +225,11 @@ def update_task_from_command_line(args: Namespace) -> bool:
         task.tags = args.tags
 
     if hasattr(args, "depends"):
-        task.depends = [resolve_unique_task_id(task_folder, dependency) for dependency in args.depends]
+        new_depends = [resolve_unique_task_id(task_folder, dependency) for dependency in args.depends]
+        if task_id in new_depends:
+            print(f"[WARNING]: {task.task_id!s:s}: Task would depend recursively on itself. Ignored.", file=sys.stderr)
+            new_depends.remove(task_id)
+        task.depends = new_depends
 
     write_task_to_file(task)
 

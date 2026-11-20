@@ -218,9 +218,7 @@ def read_task_from_file(task_file: Path, task_id: TaskID) -> tuple[bool, Task | 
         print(f"[ERROR]: {task_id:s}: while parsing the task file header the following error occured: {e}", file=sys.stderr)
         return False, None
     except RequiredElementNotFoundError as e:
-        print(
-            f"[ERROR]: {task_id:s}: required element '{e}' not found", file=sys.stderr
-        )
+        print(f"[ERROR]: {task_id:s}: required element '{e}' not found", file=sys.stderr)
         return False, None
     except MarkdownConvertValueError as e:
         print(f"[ERROR]: {task_id:s}: {e}", file=sys.stderr)
@@ -257,15 +255,11 @@ def build_task_dependencies(task: Task) -> list[Task]:
     # we use a set to ignore duplicates
     for depend_task_id in set(task.depends):
         if depend_task_id == task.task_id:
-            print(
-                f"[WARNING]: {task.task_id:s}: Task depends recursively on itself. Ignored.",
-                file=sys.stderr,
-            )
+            print(f"[WARNING]: {task.task_id!s:s}: Task depends recursively on itself. Ignored.", file=sys.stderr)
             continue
 
         depend_task_file = task_folder / Path(depend_task_id) / Path("TASK.md")
         try:
-            # TODO (CS) 20261116: Is this not read_task_from_file because we return a 'bad' task?
             depends.append(parse_task_file(depend_task_file))
         except (
             RequiredElementNotFoundError,
