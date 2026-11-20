@@ -8,6 +8,7 @@ from pathlib import Path
 
 import json
 
+from pytatr.config import load_config
 from pytatr.query import QueryError, QuerySyntaxError, compile_query, query_matches_task
 from pytatr.taskid import (
     TaskID,
@@ -252,6 +253,7 @@ def show_dependency_tree(args: Namespace) -> bool:
 
 
 def parse_args() -> Namespace:
+
     ap = ArgumentParser(description="A local task tracker.")
     ap.add_argument(
         "-f",
@@ -416,6 +418,16 @@ def parse_args() -> Namespace:
         metavar="TASKID",
         help="id of the task. must match exactly one task",
     )
+
+    args = ap.parse_args()
+
+    # check for bad arguments according to config file
+    config = load_config(args)
+    if args.command == "create" and hasattr(args, "tags"):
+        if config.allowed_tags:
+            bad_tags = [t for t in args.tags if t not in config.allowed_tags]
+            if bad_tags:
+                ap_create.error(f"The supplied tags are not allowed: {", ".join(bad_tags):s}")
 
     return ap.parse_args()
 

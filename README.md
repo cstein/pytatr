@@ -28,6 +28,17 @@ tatr supports the following commands:
 - `tatr show <TASK ID>` which allows you to show task information in more detail for a specific task id. Can optionally dump as json with `--json` flag.
 - `tatr depends <TASK ID>` which allows you to show a dependency graph for a specific task id.
 
+## Configuration
+A `config.toml` file can be placed in the tasks folder (typically `.tasks`).
+Currently, it supports a restriction on tags to be used in a project.
+By default all tags are allowed.
+A missing `config.toml` file corresponds to the following content:
+
+```toml
+[tags]
+allowed = []
+```
+
 ## Searching for Tasks
 The default `<QUERY>` is `open` and `tatr ls` will by default return the tasks that have the status `OPEN`.
 
