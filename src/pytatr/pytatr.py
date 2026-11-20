@@ -164,8 +164,6 @@ def print_query_tasks(args: Namespace) -> bool:
     return success
 
 
-
-
 def show_single_task(args: Namespace) -> bool:
     """multiline information for a single task"""
     task_folder = require_task_folder(args)
@@ -411,6 +409,7 @@ def parse_args() -> Namespace:
 
     ap_set = subparsers.add_parser("set", help="set various fields from the command line")
     ap_set_subparsers = ap_set.add_subparsers(help="fields to set", dest="field", required=True)
+
     ap_set_status = ap_set_subparsers.add_parser("status", help="set the status of a task")
     ap_set_status.add_argument(
         "status",
@@ -425,6 +424,7 @@ def parse_args() -> Namespace:
         metavar="TASKID",
         help="id of the task. must match exactly one task",
     )
+
     ap_set_tags = ap_set_subparsers.add_parser("tags", help="set the tags of a task")
     ap_set_tags.add_argument(
         "tags",
@@ -465,7 +465,7 @@ def parse_args() -> Namespace:
                 parser = error_dispatcher.get(args.command, None)
                 parser.error(f"The supplied tags are not allowed: {", ".join(bad_tags):s}. Allowed tags from config are: {", ".join(config.allowed_tags):s}")
 
-    return ap.parse_args()
+    return args
 
 
 def main(args: Namespace) -> int:
