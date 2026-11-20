@@ -30,7 +30,7 @@ tatr supports the following commands:
 
 ## Configuration
 A `config.toml` file can be placed in the tasks folder (typically `.tasks`).
-Currently, it supports a restriction on tags to be used in a project.
+Currently, it supports a restriction on tags that are allowed be used in a project.
 By default all tags are allowed.
 A missing `config.toml` file corresponds to the following content:
 
