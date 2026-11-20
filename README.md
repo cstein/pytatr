@@ -72,6 +72,7 @@ The supported keywords are
 | `tagged`| has any `<TAG>` in the TAGS field |
 | `any`   | return all tasks |
 | `:<TAG>` | has a tag `<TAG`> in the TAGS field. case sensitive. |
+| `@ID` | matches a tag ID |
 
 ### Unary Operators
 The search language in pytatr supports a single unary operator
