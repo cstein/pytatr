@@ -218,13 +218,39 @@ def update_task_from_command_line(args: Namespace) -> bool:
         task.status = TaskStatus[args.status.upper()]
 
     if hasattr(args, "tags"):
-        task.tags = args.tags
+        append_tags = [value[1:] for value in args.tags if value[0] == "+"]
+        remove_tags = [value[1:] for value in args.tags if value[0] == "-"]
+        new_tags = [value for value in args.tags if value[0] not in ["+", "-"]]
+        new_tags += task.tags
+        for append in append_tags:
+            if append not in new_tags:
+                new_tags.append(append)
+
+        for remove in remove_tags:
+            if remove in new_tags:
+                new_tags.remove(remove)
+
+        if new_tags:
+            task.tags = new_tags
+        else:
+            raise EmptyTagsListError("ASD")
 
     if hasattr(args, "depends"):
-        new_depends = [resolve_unique_task_id(task_folder, dependency) for dependency in args.depends]
+        append_depends = [resolve_unique_task_id(task_folder, value[1:]) for value in args.depends if value[0] == "+"]
+        remove_depends = [resolve_unique_task_id(task_folder, value[1:]) for value in args.depends if value[0] == "-"]
+        new_depends    = [resolve_unique_task_id(task_folder, value) for value in args.depends if value[0] not in ["+", "-"]]
+        for append in append_depends:
+            if append not in new_depends:
+                new_depends.append(append)
+
+        for remove in remove_depends:
+            if remove in new_depends:
+                new_depends.remove(remove)
+
         if task_id in new_depends:
             print(f"[WARNING]: {task.task_id!s:s}: Task would depend recursively on itself. Ignored.", file=sys.stderr)
             new_depends.remove(task_id)
+
         task.depends = new_depends
 
     write_task_to_file(task)
@@ -254,7 +280,15 @@ def parse_args() -> Namespace:
     config = load_config(args)
     error_dispatcher = {"create": parsers.create_parser, "set": parsers.set_parser}
     if hasattr(args, "tags") and config.allowed_tags:
-        bad_tags = [t for t in args.tags if t not in config.allowed_tags]
+        # tags can have + or - in them, so strip those values first
+        corrected_tags = []
+        for tag in args.tags:
+            if tag[0] in ["+", "-"]:
+                corrected_tags.append(tag[1:])
+            else:
+                corrected_tags.append(tag)
+
+        bad_tags = [t for t in corrected_tags if t not in config.allowed_tags]
         if bad_tags:
             parser = error_dispatcher.get(args.command, None)
             parser.error(f"The supplied tags are not allowed: {", ".join(bad_tags):s}. Allowed tags from config are: {", ".join(config.allowed_tags):s}")

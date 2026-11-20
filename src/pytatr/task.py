@@ -62,6 +62,10 @@ class MarkdownConvertValueError(Exception):
     pass
 
 
+class EmptyTagsListError(Exception):
+    pass
+
+
 @dataclass
 class Task:
     """Represents a task"""
@@ -195,6 +199,8 @@ def parse_task_file(filename: Path) -> Task:
         task_id = TaskID.from_string(filename.parent.stem)
         check_required_field_consistency(out_data, "TAGS",    task_id)
         check_required_field_consistency(out_data, "DEPENDS", task_id)
+        if not out_data.get("TAGS", []):
+            print(f"[WARNING]: {task_id!s:s}: field TAGS is empty", file=sys.stderr)
 
         return Task(
             task_file=filename,
@@ -212,19 +218,19 @@ def read_task_from_file(task_file: Path, task_id: TaskID) -> tuple[bool, Task | 
     try:
         task = parse_task_file(task_file)
     except ExpectedTaskListItemNotFoundError as e:
-        print(f"[ERROR]: {task_id:s}: while parsing task fields the following error occured: {e}")
+        print(f"[ERROR]: {task_id!s:s}: while parsing task fields the following error occured: {e}")
         return False, None
     except TaskHeaderNotFoundError as e:
-        print(f"[ERROR]: {task_id:s}: while parsing the task file header the following error occured: {e}", file=sys.stderr)
+        print(f"[ERROR]: {task_id!s:s}: while parsing the task file header the following error occured: {e}", file=sys.stderr)
         return False, None
     except RequiredElementNotFoundError as e:
-        print(f"[ERROR]: {task_id:s}: required element '{e}' not found", file=sys.stderr)
+        print(f"[ERROR]: {task_id!s:s}: required element '{e}' not found", file=sys.stderr)
         return False, None
     except MarkdownConvertValueError as e:
-        print(f"[ERROR]: {task_id:s}: {e}", file=sys.stderr)
+        print(f"[ERROR]: {task_id!s:s}: {e}", file=sys.stderr)
         return False, None
     except FileNotFoundError:
-        print(f"[ERROR]: {task_id:s}: TASK.md file missing", file=sys.stderr)
+        print(f"[ERROR]: {task_id!s:s}: TASK.md file missing", file=sys.stderr)
         return False, None
     except NotADirectoryError:
         return False, None
