@@ -225,7 +225,7 @@ def update_task_from_command_line(args: Namespace) -> bool:
         task.tags = args.tags
 
     if hasattr(args, "depends"):
-        task.depends = [TaskID.from_string(dependency) for dependency in args.depends]
+        task.depends = [resolve_unique_task_id(task_folder, dependency) for dependency in args.depends]
 
     write_task_to_file(task)
 
