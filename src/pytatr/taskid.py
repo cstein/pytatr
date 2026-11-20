@@ -86,5 +86,5 @@ def resolve_unique_task_id(task_folder: Path, unresolved_id: str) -> TaskID:
     if not unique_ids:
         raise NoTaskIDMatchError(f"query '{unresolved_id}' found no matching tasks")
     elif len(unique_ids) > 1:
-        raise AmbiguousTaskIDMatchError(f"query '{unresolved_id}' is ambiguous: {', '.join([i for i in unique_ids])}")
+        raise AmbiguousTaskIDMatchError(f"query '{unresolved_id}' is ambiguous: {', '.join([taskid.to_string() for taskid in unique_ids])}")
     return unique_ids.pop()
