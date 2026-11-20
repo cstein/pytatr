@@ -38,7 +38,7 @@ def build_parsers() -> Parsers:
     _add_id_parser(subparsers)
     ap_set = _add_set_parser(subparsers)
 
-    return Parsers(parser=ap, create_parser=ap_create, set_parser=ap_set)
+    return Parsers(main_parser=ap, create_parser=ap_create, set_parser=ap_set)
 
 
 def _add_global_args(ap: ArgumentParser) -> None:
