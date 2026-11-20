@@ -1,7 +1,7 @@
+import tomllib
 from argparse import Namespace
 from dataclasses import dataclass, field
 from pathlib import Path
-import tomllib
 
 
 @dataclass()

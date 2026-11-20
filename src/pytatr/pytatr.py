@@ -12,7 +12,7 @@ from pytatr.query import (
     QueryKeywordError,
     QuerySyntaxError,
     compile_query,
-    query_matches_task
+    query_matches_task,
 )
 from pytatr.task import (
     Task,
