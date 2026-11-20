@@ -236,12 +236,15 @@ def write_task_to_file(task: Task):
     """Writes a task to file with filename stored in task"""
     with open(task.task_file, "w") as f:
         s = Template(TASK_MARKDOWN)
+        depends_string = ""
+        if task.depends:
+            depends_string = " " + ", ".join(map(str, task.depends))
         mapping = {
             "title"     : task.header,
             "status"    : task.status.name,
             "priority"  : " " + str(task.priority),
             "tags"      : " " + ", ".join(task.tags),
-            "depends"   : " " + ", ".join(map(str, task.depends)),
+            "depends"   : depends_string,
             "body"      : task.body,
         }
         f.write(s.substitute(mapping))

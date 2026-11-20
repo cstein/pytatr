@@ -112,8 +112,7 @@ def create_new_task_with_content(args: Namespace) -> None:
     print(f"{task_id!s:s}", file=sys.stdout)
 
 
-def print_query_tasks(args: Namespace) -> bool:
-    success = True
+def print_query_tasks(args: Namespace) -> None:
 
     task_folder = require_task_folder(args)
 
@@ -127,7 +126,6 @@ def print_query_tasks(args: Namespace) -> bool:
         successfully_loaded_task, task = read_task_from_file(task_file, str(child))
         if successfully_loaded_task and query_matches_task(query, task):
             tasks_to_print.append(task)
-        success = success & successfully_loaded_task
 
     output = tasks_to_print
     if args.sort_priority:
@@ -147,8 +145,6 @@ def print_query_tasks(args: Namespace) -> bool:
             print(json.dumps([task.task_id.to_string() for task in output]))
         else:
             print(format_tasks_as_json(output))
-
-    return success
 
 
 def show_single_task(args: Namespace) -> bool:
@@ -187,7 +183,7 @@ def build_dependency_tree(task: Task, visited: tuple = (), indent: int = 0) -> b
 
     def build_cyclic_map(task_id: TaskID, visited: tuple) -> str:
         first = visited.index(task_id)
-        s = f"{visited[first]:s} -> "
+        s = f"{visited[first]!s:s} -> "
         items = visited[first+1:] + (task_id, )
         s += " -> ".join(items)
         return s
@@ -275,9 +271,7 @@ def main(args: Namespace) -> int:
             case "init":
                 args.task_folder.mkdir(exist_ok=False)
             case "ls":
-                success = print_query_tasks(args)
-                if not success:
-                    return ERROR_TASK_PARSE
+                print_query_tasks(args)
             case "create":
                 if args.priority > 100 or args.priority < 1:
                     raise ValueError(f"priority {args.priority:d} outside 1-100 (1 = least, 100 = most important)")

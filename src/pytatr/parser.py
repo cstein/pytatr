@@ -238,8 +238,8 @@ def _add_set_parser(subparsers) -> ArgumentParser:
     p_depends.add_argument(
         "depends",
         default=[],
-        nargs="+",
-        help="list of dependencies to set.",
+        nargs="*",
+        help="list of dependencies to set. empty means clear",
     )
     p_depends.add_argument(
         "id",
