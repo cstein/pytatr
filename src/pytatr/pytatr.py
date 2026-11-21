@@ -47,6 +47,7 @@ ERROR_TASK_PARSE = 5
 ERROR_TASK_CYCLIC_DEPENDENCY = 6
 ERROR_TASK_ID_ERROR = 11
 ERROR_TASK_EMPTY_TAGS = 12
+ERROR_TASK_PRIORITY_OUT_OF_BOUNDS = 13
 ERROR_CREATE = 7
 ERROR_USAGE = 2
 ERROR_FILE_NOT_FOUND = 10
@@ -238,6 +239,11 @@ def update_task_from_command_line(args: Namespace) -> bool:
     if hasattr(args, "status"):
         task.status = TaskStatus[args.status.upper()]
 
+    if hasattr(args, "priority"):
+        if args.priority > 100 or args.priority < 1:
+            raise ValueError(f"priority {args.priority:d} outside 1-100 (1 = least, 100 = most important)")
+        task.priority = priority
+
     if hasattr(args, "tags"):
         new_tags = clean(task.tags, args.tags, identity)
         if new_tags:
@@ -361,6 +367,10 @@ def main(args: Namespace) -> int:
     except FileNotFoundError as e:
         print(f"[ERROR]: {e}", file=sys.stderr)
         return ERROR_FILE_NOT_FOUND
+
+    except ValueError as e:
+        print(f"[ERROR]: {e}", file=sys.stderr)
+        return ERROR_TASK_PRIORITY_OUT_OF_BOUNDS
 
     return ERROR_OK
 

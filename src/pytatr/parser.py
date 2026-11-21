@@ -247,4 +247,18 @@ def _add_set_parser(subparsers) -> ArgumentParser:
         metavar="TASKID",
         help="id of the task. must match exactly one task",
     )
+
+    p_priority = p_subparsers.add_parser("priority", help="set the priority of a task")
+    p_priority.add_argument(
+        "priority",
+        type=int,
+        metavar="NUMBER",
+        help="priority of the task. 1 is lowest, 100 is highest. Default is %(default)s.",
+    )
+    p_priority.add_argument(
+        "id",
+        type=str,
+        metavar="TASKID",
+        help="id of the task. must match exactly one task",
+    )
     return p

@@ -30,6 +30,7 @@ This installs pytatr and its runtime dependencies and makes the `tatr` command a
 | flag | value |
 |------|------|
 | `status` | `open` or `closed` |
+| `priority` | any value between 1 and 100 |
 | `tags` | any value allowed by the configuration (see below) |
 | `depends` | any valid task id in the current project |
 
