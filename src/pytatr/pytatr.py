@@ -224,6 +224,8 @@ def update_task_from_command_line(args: Namespace) -> bool:
     def clean(existing: list, potential: list, clean_function: Callable[[str], str]):
         """Using sets to clean up existing values with potential values
            using a clean_function to potentially clean values before comparison"""
+        if not potential:
+            return set({})
         append  = set([clean_function(value[1:]) for value in potential if value[0] == "+"])
         remove  = set([clean_function(value[1:]) for value in potential if value[0] == "-"])
         replace = set([clean_function(value)     for value in potential if value[0] not in ["+", "-"]])
