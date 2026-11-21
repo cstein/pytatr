@@ -242,7 +242,7 @@ def update_task_from_command_line(args: Namespace) -> bool:
     if hasattr(args, "priority"):
         if args.priority > 100 or args.priority < 1:
             raise ValueError(f"priority {args.priority:d} outside 1-100 (1 = least, 100 = most important)")
-        task.priority = priority
+        task.priority = args.priority
 
     if hasattr(args, "tags"):
         new_tags = clean(task.tags, args.tags, identity)
