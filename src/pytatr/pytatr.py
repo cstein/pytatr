@@ -189,7 +189,7 @@ def build_dependency_tree(task: Task, visited: tuple = (), indent: int = 0) -> b
         first = visited.index(task_id)
         s = f"{visited[first]!s:s} -> "
         items = visited[first+1:] + (task_id, )
-        s += " -> ".join(items)
+        s += " -> ".join(map(str, items))
         return s
 
     print_indent_task(task, indent)
@@ -253,11 +253,24 @@ def update_task_from_command_line(args: Namespace) -> bool:
 
     if hasattr(args, "depends"):
         new_depends = clean(task.depends, args.depends, resolve)
+
         if task_id in new_depends:
             print(f"[WARNING]: {task.task_id!s:s}: Task would depend recursively on itself. Ignored.", file=sys.stderr)
             new_depends.remove(task_id)
 
+        # we check for direct circular dependencies (A -> B and B -> A) because
+        # circular dependencies are an error. The logic of the code is:
+        #   we are task A and at this point we point to B in the new_depends set
+        #   now we must read B to make sure we do not point to A
+        #   A has B dependencies
+        # in practice, we could use the build_dependency_tree to check for a full
+        # trace of cyclic detection.
         task.depends = list(new_depends)
+        depend_tasks = build_task_dependencies(task)
+        for depend_task in depend_tasks:
+            if task_id in depend_task.depends:
+                print(f"[WARNING]: {task_id!s}: Found cyclic dependence {depend_task.task_id!s} -> {task_id!s}. Ignored.", file=sys.stderr)
+                task.depends.remove(depend_task.task_id)
 
     write_task_to_file(task)
 
