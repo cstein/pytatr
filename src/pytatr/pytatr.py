@@ -3,6 +3,7 @@
 import json
 import sys
 from argparse import Namespace
+from collections.abc import Callable
 from pathlib import Path
 
 from pytatr.config import load_config
@@ -15,6 +16,7 @@ from pytatr.query import (
     query_matches_task,
 )
 from pytatr.task import (
+    EmptyTagsError,
     Task,
     TaskStatus,
     build_task_dependencies,
@@ -44,6 +46,7 @@ ERROR_TASK_DUPLICATE = 4
 ERROR_TASK_PARSE = 5
 ERROR_TASK_CYCLIC_DEPENDENCY = 6
 ERROR_TASK_ID_ERROR = 11
+ERROR_TASK_EMPTY_TAGS = 12
 ERROR_CREATE = 7
 ERROR_USAGE = 2
 ERROR_FILE_NOT_FOUND = 10
@@ -210,6 +213,24 @@ def build_dependency_tree(task: Task, visited: tuple = (), indent: int = 0) -> b
 
 def update_task_from_command_line(args: Namespace) -> bool:
     task_folder = require_task_folder(args)
+
+    def identity(value):
+        return value
+
+    def resolve(value):
+        return resolve_unique_task_id(task_folder, value)
+
+    def clean(existing: list, potential: list, clean_function: Callable[[str], str]):
+        """Using sets to clean up existing values with potential values
+           using a clean_function to potentially clean values before comparison"""
+        append  = set([clean_function(value[1:]) for value in potential if value[0] == "+"])
+        remove  = set([clean_function(value[1:]) for value in potential if value[0] == "-"])
+        replace = set([clean_function(value)     for value in potential if value[0] not in ["+", "-"]])
+        new = (set(existing) | append) - remove
+        if replace:
+            new = (replace | append) - remove
+        return new
+
     task_id = resolve_unique_task_id(task_folder, args.id)
     task_file = task_folder / task_id / Path("TASK.md")
     _ , task = read_task_from_file(task_file, task_id)
@@ -218,40 +239,19 @@ def update_task_from_command_line(args: Namespace) -> bool:
         task.status = TaskStatus[args.status.upper()]
 
     if hasattr(args, "tags"):
-        append_tags = [value[1:] for value in args.tags if value[0] == "+"]
-        remove_tags = [value[1:] for value in args.tags if value[0] == "-"]
-        new_tags = [value for value in args.tags if value[0] not in ["+", "-"]]
-        new_tags += task.tags
-        for append in append_tags:
-            if append not in new_tags:
-                new_tags.append(append)
-
-        for remove in remove_tags:
-            if remove in new_tags:
-                new_tags.remove(remove)
-
+        new_tags = clean(task.tags, args.tags, identity)
         if new_tags:
-            task.tags = new_tags
+            task.tags = list(new_tags)
         else:
-            raise EmptyTagsListError("An empty list at this point is NOT allowed")
+            raise EmptyTagsError(f"{task_id!s}: supplied tags {', '.join(args.tags)} removes all tags.")
 
     if hasattr(args, "depends"):
-        append_depends = [resolve_unique_task_id(task_folder, value[1:]) for value in args.depends if value[0] == "+"]
-        remove_depends = [resolve_unique_task_id(task_folder, value[1:]) for value in args.depends if value[0] == "-"]
-        new_depends    = [resolve_unique_task_id(task_folder, value) for value in args.depends if value[0] not in ["+", "-"]]
-        for append in append_depends:
-            if append not in new_depends:
-                new_depends.append(append)
-
-        for remove in remove_depends:
-            if remove in new_depends:
-                new_depends.remove(remove)
-
+        new_depends = clean(task.depends, args.depends, resolve)
         if task_id in new_depends:
             print(f"[WARNING]: {task.task_id!s:s}: Task would depend recursively on itself. Ignored.", file=sys.stderr)
             new_depends.remove(task_id)
 
-        task.depends = new_depends
+        task.depends = list(new_depends)
 
     write_task_to_file(task)
 
@@ -349,6 +349,10 @@ def main(args: Namespace) -> int:
     except AmbiguousTaskIDMatchError as e:
         print(f"[TASK ID ERROR]: {e}", file=sys.stderr)
         return ERROR_TASK_DUPLICATE
+
+    except EmptyTagsError as e:
+        print(f"[ERROR]: {e}", file=sys.stderr)
+        return ERROR_TASK_EMPTY_TAGS
 
     except (FileExistsError, TasksFolderNotFoundError) as e:
         print(f"[ERROR]: {e}", file=sys.stderr)

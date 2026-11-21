@@ -62,7 +62,7 @@ class MarkdownConvertValueError(Exception):
     pass
 
 
-class EmptyTagsListError(Exception):
+class EmptyTagsError(Exception):
     pass
 
 
